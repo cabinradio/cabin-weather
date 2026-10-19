@@ -17,9 +17,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    concurrency:
-      group: pages
-      cancel-in-progress: false
+    # Concurrency lives in the calling workflows (group "pages"); declaring it here too deadlocks the run.
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
