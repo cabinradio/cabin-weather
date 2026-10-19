@@ -124,12 +124,12 @@ def load_schema(name: str) -> dict:
 
 
 def schema_for(path: Path) -> str | None:
-    rel = path.resolve().relative_to(DATA.resolve()).as_posix() if path.resolve().is_relative_to(DATA.resolve()) else path.name
-    if rel == "current.json":
+    """current.json -> current; anything in a forecast/ or history/ folder -> that schema (also outside data/)."""
+    if path.name == "current.json":
         return "current"
-    if rel.startswith("forecast/"):
+    if path.parent.name == "forecast":
         return "forecast"
-    if rel.startswith("history/"):
+    if path.parent.name == "history":
         return "history"
     return None
 
