@@ -1,0 +1,29 @@
+# Tests on pull requests and on pipeline changes pushed to main. Playwright screenshots arrive with the front end.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths: ["pipeline/**", "pyproject.toml", ".github/workflows/ci.yml"]
+
+env:
+  PYTHONTZPATH: ""
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements-dev.txt
+      - run: pip install -r pipeline/requirements-dev.txt
+      - run: pytest
+      - name: Fetch, derive offline and validate end to end
+        run: |
+          python pipeline/fetch_citypage.py --no-live
+          python pipeline/derive.py --offline
+          python pipeline/validate.py
