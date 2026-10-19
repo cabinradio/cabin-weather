@@ -61,18 +61,32 @@ The "live file" is read from the GitHub Pages origin (`cabinradio.github.io/cabi
 
 ## Time
 
-Everything presented is Mountain Time (`America/Yellowknife`). Timestamps are stored as ISO 8601 with offsets. City Page XML gives both UTC and local timestamps; the local one is used.
+Everything presented is Mountain Time (`America/Yellowknife`). Timestamps are stored as ISO 8601 with offsets. The pipeline always converts from UTC with `zoneinfo`, never from ECCC's local strings, because ECCC's climate-hourly `LOCAL_DATE` is local *standard* time all year (UTC-7), while City Page local times follow the clock.
+
+**Clock change, flagged 2026-10-19.** The IANA time-zone database (2026e, and the `tzdata` package pinned in `pipeline/requirements.txt`) says America/Edmonton and America/Yellowknife stop changing clocks after November 2026 and stay on UTC-6, labelled CST, from then on. The workflows set `PYTHONTZPATH=""` so CI uses the pinned package rather than whatever the runner has, and local runs on a current macOS agree. What the page should call the zone after that ("MT" per the Style Guide today) is a decision for Ollie; it is one label in the front-end formatter.
+
+## ECCC quirks the code relies on
+
+- `climate-daily` leaves `SPEED_MAX_GUST` null whenever the day's peak gust was under 31 km/h (the bulk CSV says `<31`); `climate_archive.num()` turns both into null. A null gust means "under 31", not "unknown".
+- The current day's `climate-daily` row exists with every value null; rows with no measurements are dropped from the archive.
+- LTCE records are updated daily and already include this year, so `derive.compare()` ignores entries from the current year when deciding whether a value is a record or top-three. A tie with the standing record counts as a record ("matching").
+- Six NWT automatic stations report no condition text or icon (Aklavik, Fort Providence, Nahanni Butte, Sambaa K'e, Whatì, Wrigley): `condition` is null and `icon` is `na`; the page shows temperature only.
+- Dettah's observations come from Yellowknife Airport, Enterprise's from Hay River's airport, Nahanni Butte's from Yohin Lake. The `station` field says so.
+- ECCC spells some station names its own way (Łutselk'e, Whatı̀, Deline, Gameti, Wekweeti, Detah); `fetch_citypage.station_name()` maps them to Style Guide spellings. ECCC forecast prose says "minus 4" and "plus 1"; `house_prose()` makes that "-4" and "1" and changes nothing else.
+- ECCC's seventh forecast day has a day period only, so its `low` and `night_text` are null.
+- The `warnings` element carries `url`; each `event` has `type`, `priority`, `description` and `expiryTime` (ECCC tag table). None were active in the NWT on the day this was written, so the parser is covered by a test, not by a live file.
 
 ## Scheduling and deploy
 
 - `refresh-current.yml`: `*/30 * * * *`.
 - `refresh-climate.yml`: `10 9,15 * * *` (after ECCC's overnight archive update). Commits archive and history changes to `main` first, which also keeps the repo active so GitHub never disables the scheduled workflows (public repos lose schedules after 60 days without a commit).
-- `deploy.yml`: builds the Pages artifact (site + committed data + fresh current/forecast JSON) and deploys with `actions/deploy-pages`. `concurrency: pages` so runs never overlap.
-- `ci.yml`: tests and Playwright screenshots on pull requests.
+- `deploy.yml`: reusable (`workflow_call`); checks out the tip of `main`, runs `fetch_citypage.py` then `validate.py`, assembles `_site/` from `site/` plus `data/`, and deploys with `actions/deploy-pages`. The `pages` concurrency group is declared only in the two calling workflows: declaring it inside the called job as well deadlocks the run (learned on the first deploy).
+- `refresh-current.yml` also runs on every push to `main`, so site changes deploy at once. Commits made by the climate workflow use `GITHUB_TOKEN`, which never triggers other workflows, so there is no loop.
+- `ci.yml`: `pytest` plus an offline end-to-end (fetch, derive, validate) on pull requests and on pipeline changes pushed to `main`. Playwright screenshots arrive with the front end.
 
 ## Hosting
 
-Public repo `cabinradio/cabin-weather`. GitHub Pages with the custom domain `weather.cabinradio.ca`: a CNAME in Cloudflare to `cabinradio.github.io`, DNS-only until GitHub issues the certificate, then proxied. Ollie owns DNS. Until the CNAME exists, test on `https://cabinradio.github.io/cabin-weather/`.
+Public repo `cabinradio/cabin-weather` (a personal account, not an organization). GitHub Pages is enabled with Actions as the source (`build_type: workflow`); the `github-pages` environment allows deployments from `main` only. Custom domain `weather.cabinradio.ca` to come: a CNAME in Cloudflare to `cabinradio.github.io`, DNS-only until GitHub issues the certificate, then proxied. Ollie owns DNS. Until the CNAME exists, test on `https://cabinradio.github.io/cabin-weather/`, which is also where `fetch_citypage.py` reads the live files (`CABIN_WEATHER_LIVE_BASE` overrides it).
 
 ## Embedding
 
