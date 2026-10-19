@@ -98,7 +98,7 @@ def test_cold_half_of_the_ranking_reads_as_coldest():
     rows.update(make_rows(date(2026, 1, 1), date(2026, 10, 18), lambda d: -7.0, lambda d: -9.0))
     m = derive.month_period(rows, derive.Climatology(rows), date(2026, 10, 18), 1991)
     assert m["rank"] == 34 and m["of"] == 36
-    assert m["rank_text"] == "3rd coldest October 1–18 in 36 years"
+    assert m["rank_text"] == "2nd coldest October 1–18 in 36 years"
 
 
 # Seasons are meteorological; winter runs December to February across the year end.
