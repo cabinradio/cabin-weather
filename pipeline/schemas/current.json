@@ -1,0 +1,70 @@
+{
+  "$comment": "data/current.json: one file, all 28 communities. Every value that can be missing is null, never omitted.",
+  "type": "object",
+  "required": ["generated_at", "communities"],
+  "additionalProperties": false,
+  "properties": {
+    "generated_at": {"$ref": "#/$defs/timestamp"},
+    "communities": {
+      "type": "object",
+      "minProperties": 28,
+      "maxProperties": 28,
+      "additionalProperties": {"$ref": "#/$defs/community"}
+    }
+  },
+  "$defs": {
+    "timestamp": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(Z|[+-]\\d{2}:\\d{2})$"},
+    "clock": {"type": ["string", "null"], "pattern": "^\\d{2}:\\d{2}$"},
+    "numberOrNull": {"type": ["number", "null"]},
+    "stringOrNull": {"type": ["string", "null"]},
+    "warning": {
+      "type": "object",
+      "required": ["type", "title", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"type": "string", "enum": ["warning", "watch", "advisory", "statement", "ended"]},
+        "title": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "pattern": "^https://"}
+      }
+    },
+    "community": {
+      "type": "object",
+      "required": [
+        "name", "region", "tier", "site_code", "eccc_url", "observed_at", "station", "temp", "condition", "icon",
+        "wind_kmh", "wind_gust_kmh", "wind_dir", "wind_chill", "humidex", "humidity", "dewpoint",
+        "pressure_kpa", "pressure_tendency", "warnings", "sunrise", "sunset",
+        "today_high", "today_low", "normal_high", "normal_low", "stale"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "region": {"type": "string", "enum": ["North Slave", "South Slave", "Beaufort Delta", "Sahtu", "Dehcho", "Tłı̨chǫ"]},
+        "tier": {"type": "string", "enum": ["forecast", "comparison", "plus"]},
+        "site_code": {"type": "string", "pattern": "^s\\d{7}$"},
+        "eccc_url": {"type": "string", "pattern": "^https://weather\\.gc\\.ca/"},
+        "observed_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
+        "station": {"$ref": "#/$defs/stringOrNull"},
+        "temp": {"$ref": "#/$defs/numberOrNull"},
+        "condition": {"$ref": "#/$defs/stringOrNull"},
+        "icon": {"type": "string", "minLength": 1},
+        "wind_kmh": {"$ref": "#/$defs/numberOrNull"},
+        "wind_gust_kmh": {"$ref": "#/$defs/numberOrNull"},
+        "wind_dir": {"$ref": "#/$defs/stringOrNull"},
+        "wind_chill": {"$ref": "#/$defs/numberOrNull"},
+        "humidex": {"$ref": "#/$defs/numberOrNull"},
+        "humidity": {"$ref": "#/$defs/numberOrNull"},
+        "dewpoint": {"$ref": "#/$defs/numberOrNull"},
+        "pressure_kpa": {"$ref": "#/$defs/numberOrNull"},
+        "pressure_tendency": {"type": ["string", "null"], "enum": ["rising", "falling", "steady", null]},
+        "warnings": {"type": "array", "items": {"$ref": "#/$defs/warning"}},
+        "sunrise": {"$ref": "#/$defs/clock"},
+        "sunset": {"$ref": "#/$defs/clock"},
+        "today_high": {"$ref": "#/$defs/numberOrNull"},
+        "today_low": {"$ref": "#/$defs/numberOrNull"},
+        "normal_high": {"$ref": "#/$defs/numberOrNull"},
+        "normal_low": {"$ref": "#/$defs/numberOrNull"},
+        "stale": {"type": "boolean"}
+      }
+    }
+  }
+}
