@@ -83,7 +83,7 @@ def test_check_file_rejects_hand_corrupted_file(tmp_path, current, monkeypatch):
 
 def test_history_schema_accepts_minimal_valid_file():
     day = {k: None for k in ["max", "min", "precip", "gust", "normal_max", "normal_min", "range_max_hi", "range_max_lo",
-                             "range_min_hi", "range_min_lo", "record_high", "record_high_year", "record_low", "record_low_year"]}
+                             "range_min_hi", "range_min_lo", "record_high", "record_high_year", "record_low", "record_low_year", "normal_precip"]}
     period = {"name": "October", "label": "October 1–18", "from": "2026-10-01", "to_date": "2026-10-18", "days": 18,
               "mean": 2.9, "normal": 1.2, "anomaly": 1.7, "rank": 23, "of": 84, "rank_text": "23rd warmest October 1–18 in 84 years",
               "precip": 1.0, "precip_normal": 12.0, "wettest_rank": 70,

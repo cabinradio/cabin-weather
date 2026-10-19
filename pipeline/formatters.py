@@ -175,8 +175,10 @@ def fortnight_summary(name: str, mean: float | None, anomaly: float | None, reco
     return " ".join([first, lead, *records])
 
 
-def record_sentence(kind: str, value: float, d: date, previous: float | None, previous_year: int | None) -> str:
-    """The high of 14.4C on October 12 was a record for the date, passing 13.9C from 1963."""
+def record_sentence(kind: str, value: float, d: date, previous: float | None, previous_year: int | None, tied: bool = False) -> str:
+    """The high of 14.4C on October 12 was a record for the date, passing 13.9C from 1963.
+
+    With tied=True: ... matching 14.4C from 1963."""
     label = {
         "high": "high",
         "low": "low",
@@ -191,7 +193,8 @@ def record_sentence(kind: str, value: float, d: date, previous: float | None, pr
     }[kind]
     text = f"The {label} of {fmt_temp(value, 1)} on {fmt_date(d)} was {what}"
     if previous is not None and previous_year is not None:
-        text = f"{text}, passing {fmt_temp(previous, 1)} from {previous_year}"
+        verb = "matching" if tied else "passing"
+        text = f"{text}, {verb} {fmt_temp(previous, 1)} from {previous_year}"
     return text + "."
 
 
