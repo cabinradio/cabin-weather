@@ -1,0 +1,52 @@
+{
+  "_comment": "Climate station threads for the comparison and plus tiers. Threads follow ECCC's own LTCE (Long Term Climate Extremes) virtual-station threading so our recent values compare like for like with the published records. 'daily' is ordered oldest first; each entry gives the climate identifier, the GeoMet STN_ID, and the date range it covers (null end = present). 'hourly' names the station used for climate-hourly (wind chill); only the plus tier uses it. 'ltce' is the virtual climate ID for ltce-temperature and ltce-precipitation.",
+  "stations": {
+    "yellowknife": {
+      "ltce": "VSNT24V",
+      "daily": [
+        {"climate_id": "2204100", "stn_id": 1706,  "name": "Yellowknife A", "from": "1942-07-01", "to": "2013-01-16"},
+        {"climate_id": "2204101", "stn_id": 51058, "name": "Yellowknife A", "from": "2013-01-17", "to": null}
+      ],
+      "hourly": {"climate_id": "2204101", "stn_id": 51058}
+    },
+    "inuvik": {
+      "ltce": "VSNT30V",
+      "daily": [
+        {"climate_id": "2202570", "stn_id": 1669,  "name": "Inuvik A",       "from": "1957-03-01", "to": "2003-07-31"},
+        {"climate_id": "2202578", "stn_id": 41883, "name": "Inuvik Climate", "from": "2003-08-01", "to": null}
+      ]
+    },
+    "norman-wells": {
+      "ltce": "VSNT21V",
+      "daily": [
+        {"climate_id": "2202800", "stn_id": 1680,  "name": "Norman Wells A",       "from": "1943-05-01", "to": "2012-10-11"},
+        {"climate_id": "2202810", "stn_id": 43004, "name": "Norman Wells Climate", "from": "2012-10-12", "to": null}
+      ]
+    },
+    "fort-simpson": {
+      "ltce": "VSNT4VV",
+      "daily": [
+        {"climate_id": "2202100", "stn_id": 1655,  "name": "Fort Simpson",         "from": "1895-11-01", "to": "1963-10-31"},
+        {"climate_id": "2202101", "stn_id": 1656,  "name": "Fort Simpson A",       "from": "1963-11-01", "to": "2014-10-02"},
+        {"climate_id": "2202102", "stn_id": 41944, "name": "Fort Simpson Climate", "from": "2014-10-03", "to": null}
+      ]
+    },
+    "hay-river": {
+      "ltce": "VSNT8VV",
+      "daily": [
+        {"climate_id": "2202398", "stn_id": 1663,  "name": "Hay River",         "from": "1893-09-01", "to": "1943-03-31"},
+        {"climate_id": "2202400", "stn_id": 1664,  "name": "Hay River A",       "from": "1943-04-01", "to": "2014-09-03"},
+        {"climate_id": "2202402", "stn_id": 41885, "name": "Hay River Climate", "from": "2014-09-04", "to": null}
+      ]
+    },
+    "fort-smith": {
+      "ltce": "VSNT17V",
+      "daily": [
+        {"climate_id": "2202196", "stn_id": 1658,  "name": "Fort Smith",         "from": "1913-07-01", "to": "1928-02-29"},
+        {"climate_id": "2202198", "stn_id": 1659,  "name": "Fort Smith",         "from": "1928-03-01", "to": "1943-08-31"},
+        {"climate_id": "2202200", "stn_id": 1660,  "name": "Fort Smith A",       "from": "1943-09-01", "to": "2014-11-05"},
+        {"climate_id": "2202202", "stn_id": 41884, "name": "Fort Smith Climate", "from": "2014-11-06", "to": null}
+      ]
+    }
+  }
+}
