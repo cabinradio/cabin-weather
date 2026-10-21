@@ -1,9 +1,11 @@
 # Every 30 minutes: fresh current conditions and forecasts, then deploy. Also deploys on every push to main.
+# Off the top and bottom of the hour on purpose: GitHub delays or drops schedules at busy minutes, and the
+# first 42 hours on "*/30" produced only ten runs, hours apart.
 name: Refresh current conditions
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "7,37 * * * *"
   push:
     branches: [main]
   workflow_dispatch:
