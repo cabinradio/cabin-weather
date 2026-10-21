@@ -19,6 +19,10 @@ The "Refresh current conditions" workflow is meant to run every 30 minutes. GitH
    - **Permissions → Repository permissions → Actions:** **Read and write**. Leave everything else at No access (Metadata becomes Read automatically).
 4. **Generate token**. Copy it now; GitHub shows it once. Keep it somewhere safe until step 2 is done, then delete that copy.
 
+## Status
+
+Deployed with `wrangler deploy` on 2026-10-21 from this folder (Worker `cabin-weather-trigger`, cron `7,37 * * * *`, no public URL). Only the `GITHUB_TOKEN` secret is set by hand: step 1 below, then `wrangler secret put GITHUB_TOKEN` in this folder and paste the token when asked. Step 2 is the dashboard route, kept for reference or for a rebuild without wrangler.
+
 ## Step 2 – create the Worker in the Cloudflare dashboard (about 5 minutes)
 
 1. Sign in to dash.cloudflare.com → left sidebar **Workers & Pages** → **Create** (or **Create application**) → **Create Worker**.
