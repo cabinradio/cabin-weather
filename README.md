@@ -17,6 +17,7 @@ Based on Environment and Climate Change Canada data. See the [ECCC data licence]
 | `archive/` | Committed daily climate archive, one CSV per history community, plus LTCE record JSON. |
 | `data/` | The JSON the front end reads. `history/` is committed by the daily job; `current.json` and `forecast/` are built at deploy time. |
 | `site/` | The front end: `index.html`, `app.js`, `app.css`, `icons.svg`. Deployed as-is. |
+| `e2e/` | Front-end checks: formatter tests (`npm test`), Playwright screenshots (`npx playwright test`), the local static server (`e2e/serve.py`) and frozen fixtures. |
 | `wordpress/` | The shortcode snippet for cabinradio.ca. |
 | `docs/` | The implementation plan and working notes. |
 
@@ -27,6 +28,14 @@ python3 -m venv .venv
 .venv/bin/pip install -r pipeline/requirements-dev.txt
 .venv/bin/python pipeline/discover_stations.py   # Phase 0 check against live ECCC data
 .venv/bin/pytest pipeline/tests
+```
+
+## Previewing the front end
+
+```bash
+.venv/bin/python pipeline/fetch_citypage.py --no-live   # data/current.json and data/forecast/
+python3 e2e/serve.py 8765                                # then open http://127.0.0.1:8765/
+npm install && npm test && npx playwright test           # formatter tests and screenshots
 ```
 
 See `CLAUDE.md` for the working rules and `ARCHITECTURE.md` for how the pieces fit together.
