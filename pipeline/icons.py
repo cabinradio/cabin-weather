@@ -1,6 +1,7 @@
 """ECCC icon codes (0–48, shared by current conditions and forecasts) -> our glyph names.
 
-The glyph names are the ids in site/icons.svg. Unknown or empty codes map to
+The glyph names are the symbol ids in site/icons.svg, prefixed cw- (cw-sun) so
+nothing on cabinradio.ca can collide with them. Unknown or empty codes map to
 "na", a neutral glyph, never to a broken image (plan section 4, rule 4).
 """
 

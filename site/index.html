@@ -3,17 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cabin Weather</title>
-<style>body{font-family:Georgia,serif;max-width:40rem;margin:3rem auto;padding:0 1rem;line-height:1.5;color:#000}a{color:#ed5734}</style>
+<title>Yellowknife weather – Cabin Radio</title>
+<meta name="description" content="Current conditions, the next 24 hours, the seven-day forecast and the past two weeks against the record for Northwest Territories communities, from Cabin Radio and Environment and Climate Change Canada data.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" href="data/current.json" as="fetch" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Domine&family=Lora:wght@500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Domine&family=Lora:wght@500&display=swap"></noscript>
+<link rel="stylesheet" href="app.css">
+<style>html{background:#fff}body{margin:0;padding:2rem 1rem 4rem;background:#fff}</style>
+<script src="app.js" defer></script>
 </head>
 <body>
-<h1>Cabin Weather</h1>
-<p>Weather for the Northwest Territories, from <a href="https://cabinradio.ca">Cabin Radio</a>. The page itself is still being built; the data feed is live:</p>
-<ul>
-<li><a href="data/current.json">data/current.json</a> – current conditions for 28 communities, refreshed every 30 minutes</li>
-<li><a href="data/forecast/yellowknife.json">data/forecast/{community}.json</a> – next 24 hours and seven days</li>
-<li><a href="data/history/yellowknife.json">data/history/{community}.json</a> – recent weather against the record, for six communities</li>
-</ul>
-<p>Based on Environment and Climate Change Canada data.</p>
+<main>
+<div id="cabin-weather" data-standalone>
+<h1 class="cw-name">Yellowknife</h1>
+<noscript><p>Live weather needs JavaScript. See <a href="https://weather.gc.ca/en/location/index.html?coords=62.45,-114.37">Yellowknife on weather.gc.ca</a>.</p></noscript>
+</div>
+</main>
 </body>
 </html>

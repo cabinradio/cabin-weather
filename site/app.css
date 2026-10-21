@@ -1,0 +1,121 @@
+/* Cabin Weather. Every selector is scoped under #cabin-weather so nothing leaks into or out of cabinradio.ca.
+   Tokens are the ones in docs/implementation-plan.md section 6; nothing else is used.
+   Text never uses --muted (#999 fails the 4.5:1 contrast Lighthouse requires); small text is --ink-3. */
+#cabin-weather{
+  --font-body:'Domine',Georgia,serif;
+  --font-head:'Lora',Georgia,serif;
+  --ink:#000;--ink-2:#111;--ink-3:#444;--muted:#999;--rule:#eee;--grid:#ebebeb;
+  --accent:#ed5734;
+  --band-normal:#e9e3dc;
+  --band-range:#f4f1ee;
+  --precip:#8ea6b8;
+  --space:1.5rem;
+  box-sizing:border-box;
+  font-family:var(--font-body);
+  font-size:19px;
+  line-height:1.57;
+  color:var(--ink);
+  background:#fff;
+  max-width:710px;
+  margin:0 auto;
+  padding:0;
+  -webkit-text-size-adjust:100%;
+}
+#cabin-weather *,#cabin-weather *::before,#cabin-weather *::after{box-sizing:inherit}
+#cabin-weather h1,#cabin-weather h2,#cabin-weather h3,#cabin-weather p,#cabin-weather ul,#cabin-weather ol,#cabin-weather li,#cabin-weather figure,#cabin-weather figcaption{margin:0;padding:0;background:none;border:0;list-style:none;text-align:left}
+#cabin-weather h1,#cabin-weather h2,#cabin-weather h3{font-family:var(--font-head);font-weight:500;color:var(--ink-2);line-height:1.2;letter-spacing:0;text-transform:none}
+#cabin-weather a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:1.5px;text-underline-offset:.15em}
+#cabin-weather a:hover{color:var(--accent)}
+#cabin-weather :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+#cabin-weather [hidden]{display:none!important}
+#cabin-weather .cw-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Header: brand line (standalone only), community name, picker */
+#cabin-weather .cw-brand{font-size:12px;color:var(--ink-3);margin-bottom:var(--space)}
+#cabin-weather .cw-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:.75rem var(--space);margin-bottom:var(--space)}
+#cabin-weather .cw-name{font-size:40px}
+#cabin-weather .cw-pick{display:flex;flex-direction:column;gap:.2rem;font-size:12px;color:var(--ink-3);min-width:13rem}
+#cabin-weather .cw-pick select{font:inherit;font-family:var(--font-body);font-size:16px;line-height:1.3;color:var(--ink);background:#fff;border:1px solid var(--muted);border-radius:0;padding:.5rem .75rem;min-height:44px;width:100%;max-width:100%;margin:0;box-shadow:none}
+#cabin-weather .cw-warning{margin-bottom:var(--space);color:var(--ink-2)}
+#cabin-weather .cw-notice{margin:var(--space) 0}
+
+/* Sections: whitespace and one hairline rule */
+#cabin-weather .cw-sec{padding:calc(var(--space) * 1.5) 0 calc(var(--space) * 2);border-top:1px solid var(--rule)}
+#cabin-weather .cw-sec:first-child{border-top:0;padding-top:0}
+#cabin-weather .cw-sec h2,#cabin-weather .cw-sec h3{font-size:27px;margin-bottom:var(--space)}
+#cabin-weather .cw-muted{color:var(--ink-3)}
+
+/* Now */
+#cabin-weather .cw-now{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 1rem;margin-bottom:.5rem}
+#cabin-weather .cw-big{font-family:var(--font-head);font-weight:500;font-size:64px;line-height:1;color:var(--ink-2);letter-spacing:-.01em}
+#cabin-weather .cw-cond{font-size:27px;font-family:var(--font-head);font-weight:500;color:var(--ink-2)}
+#cabin-weather .cw-obs{margin-top:.75rem;color:var(--ink-3)}
+
+/* Next 24 hours: a strip that scrolls sideways on phones and fits on desktop */
+#cabin-weather .cw-hours{display:flex;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:.5rem}
+#cabin-weather .cw-hour{flex:0 0 48px;min-width:0;text-align:center;line-height:1.3;padding:.25rem 0}
+#cabin-weather .cw-hour-t{font-size:12px;color:var(--ink-3);white-space:nowrap}
+#cabin-weather .cw-hour .cw-glyph{width:24px;height:24px;margin:.35rem auto .2rem;display:block}
+#cabin-weather .cw-hour-v{font-family:var(--font-head);font-weight:500;color:var(--ink-2);white-space:nowrap}
+#cabin-weather .cw-glyph{width:28px;height:28px;color:var(--ink-3);vertical-align:middle;flex:none;overflow:visible}
+
+/* This week: one row per day */
+#cabin-weather .cw-week li{display:grid;grid-template-columns:9rem 36px auto 1fr;grid-template-areas:"day glyph temps text";column-gap:1rem;align-items:baseline;padding:.6rem 0;border-top:1px solid var(--rule)}
+#cabin-weather .cw-week li:first-child{border-top:0;padding-top:0}
+#cabin-weather .cw-week .cw-day{grid-area:day;font-family:var(--font-head);font-weight:500;color:var(--ink-2);line-height:1.25}
+#cabin-weather .cw-week .cw-day span{display:block;font-family:var(--font-body);font-weight:400;font-size:12px;color:var(--ink-3)}
+#cabin-weather .cw-week .cw-glyph{grid-area:glyph;align-self:center}
+#cabin-weather .cw-week .cw-temps{grid-area:temps;white-space:nowrap;font-family:var(--font-head);font-weight:500;color:var(--ink-2)}
+#cabin-weather .cw-week .cw-temps span{color:var(--ink-3);font-weight:400}
+#cabin-weather .cw-week .cw-text{grid-area:text;color:var(--ink-3)}
+#cabin-weather .cw-sun{margin-top:var(--space);color:var(--ink-3)}
+
+/* Charts: hand-drawn SVG, Lora labels, hairlines, no boxes */
+#cabin-weather figure{margin:0}
+#cabin-weather figure+figure,#cabin-weather .cw-summary+figure{margin-top:calc(var(--space) * 1.5)}
+#cabin-weather figcaption{margin-bottom:.75rem}
+#cabin-weather figcaption b{font-family:var(--font-head);font-weight:500;color:var(--ink-2);font-size:1.15em;display:block}
+#cabin-weather figcaption span{color:var(--ink-3)}
+#cabin-weather .cw-chart{display:block;width:100%;height:auto;font-family:var(--font-head);font-size:13px;overflow:visible;touch-action:pan-y;outline-offset:6px}
+#cabin-weather .cw-chart text{fill:var(--ink-3)}
+#cabin-weather .cw-chart .cw-grid{stroke:var(--grid);stroke-width:1}
+#cabin-weather .cw-chart .cw-range{fill:var(--band-range)}
+#cabin-weather .cw-chart .cw-normal{fill:var(--band-normal)}
+#cabin-weather .cw-chart .cw-sel{fill:var(--band-normal);mix-blend-mode:multiply}
+#cabin-weather .cw-chart .cw-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+#cabin-weather .cw-chart .cw-line-2{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+#cabin-weather .cw-chart .cw-dot{fill:var(--accent)}
+#cabin-weather .cw-chart .cw-ring{fill:#fff;stroke:var(--accent);stroke-width:2}
+#cabin-weather .cw-chart .cw-label{fill:var(--accent);font-size:12px}
+#cabin-weather .cw-chart .cw-bar{fill:var(--precip)}
+#cabin-weather .cw-chart .cw-bar-line{fill:none;stroke:var(--precip);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+#cabin-weather .cw-chart .cw-bar-dot{fill:var(--precip)}
+#cabin-weather .cw-chart .cw-norm-line{fill:none;stroke:var(--ink-3);stroke-width:1;stroke-dasharray:3 3}
+#cabin-weather .cw-detail{margin-top:.5rem;color:var(--ink-3);min-height:1.57em}
+#cabin-weather .cw-summary{margin-top:var(--space)}
+
+/* Lists of sentences (month, season, records) */
+#cabin-weather .cw-lines li{margin-bottom:.5rem}
+#cabin-weather .cw-lines li:last-child{margin-bottom:0}
+
+/* Footer */
+#cabin-weather .cw-foot{font-size:12px;color:var(--ink-3);padding-top:var(--space);border-top:1px solid var(--rule)}
+#cabin-weather .cw-foot p{margin-bottom:.4rem}
+
+@media (min-width:720px){
+  #cabin-weather .cw-hours{overflow-x:visible}
+  #cabin-weather .cw-hour{flex:1 1 0}
+  #cabin-weather .cw-hour:nth-child(even) .cw-hour-t{visibility:hidden}
+  #cabin-weather .cw-hour-v{font-size:15px}
+}
+@media (max-width:600px){
+  #cabin-weather{font-size:17px}
+  #cabin-weather .cw-name{font-size:32px}
+  #cabin-weather .cw-sec h2,#cabin-weather .cw-sec h3{font-size:24px}
+  #cabin-weather .cw-big{font-size:48px}
+  #cabin-weather .cw-cond{font-size:22px}
+  #cabin-weather .cw-head{align-items:stretch;flex-direction:column}
+  #cabin-weather .cw-pick{min-width:0}
+  #cabin-weather .cw-week li{grid-template-columns:1fr 36px auto;grid-template-areas:"day glyph temps" "text text text";row-gap:.1rem}
+  #cabin-weather .cw-week .cw-text{font-size:.9em}
+}
