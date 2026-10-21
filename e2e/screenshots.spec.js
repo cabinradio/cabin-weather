@@ -61,7 +61,7 @@ test('a failed current.json leaves a calm sentence, not a blank', async ({ page 
   await page.route('**/data/current.json*', route => route.fulfill({ status: 500, body: 'error' }));
   const pageErrors = [];
   page.on('pageerror', e => pageErrors.push(String(e)));
-  await page.goto('/');
+  await page.goto('./');
   const app = page.locator('#cabin-weather');
   await expect(app.locator('.cw-notice')).toContainText('Live weather is temporarily unavailable');
   await expect(app.locator('.cw-name')).toHaveText('Yellowknife');
@@ -72,7 +72,7 @@ test('a failed current.json leaves a calm sentence, not a blank', async ({ page 
 
 test('the community picker navigates by hash and the hash drives the page', async ({ page }) => {
   const errors = watchConsole(page);
-  await page.goto('/');
+  await page.goto('./');
   const app = page.locator('#cabin-weather');
   await expect(app.locator('.cw-name')).toHaveText('Yellowknife');
   await app.locator('select').selectOption('inuvik');
