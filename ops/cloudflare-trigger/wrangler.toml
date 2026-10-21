@@ -1,0 +1,7 @@
+# Only needed if deploying with the wrangler CLI. The dashboard route in README.md needs no file.
+name = "cabin-weather-trigger"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[triggers]
+crons = ["7,37 * * * *"]
