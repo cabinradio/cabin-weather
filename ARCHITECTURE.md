@@ -78,7 +78,7 @@ Everything presented is Mountain Time (`America/Yellowknife`). Timestamps are st
 
 ## Scheduling and deploy
 
-- `refresh-current.yml`: `*/30 * * * *`.
+- `refresh-current.yml`: `7,37 * * * *`. It was `*/30` until 2026-10-21; in the first 42 hours GitHub ran only 10 of the expected 84 scheduled runs (one every three to five hours). GitHub's documentation says schedules queued at the top of the hour are the most delayed, so the minutes were moved off :00 and :30. If runs are still sparse after that, the fallback is a `workflow_dispatch` poke from an external scheduler, which is outside this repo and Ollie's call.
 - `refresh-climate.yml`: `10 9,15 * * *` (after ECCC's overnight archive update). Commits archive and history changes to `main` first, which also keeps the repo active so GitHub never disables the scheduled workflows (public repos lose schedules after 60 days without a commit).
 - `deploy.yml`: reusable (`workflow_call`); checks out the tip of `main`, runs `fetch_citypage.py` then `validate.py`, assembles `_site/` from `site/` plus `data/`, and deploys with `actions/deploy-pages`. The `pages` concurrency group is declared only in the two calling workflows: declaring it inside the called job as well deadlocks the run (learned on the first deploy).
 - `refresh-current.yml` also runs on every push to `main`, so site changes deploy at once. Commits made by the climate workflow use `GITHUB_TOKEN`, which never triggers other workflows, so there is no loop.
