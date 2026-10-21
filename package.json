@@ -1,0 +1,14 @@
+{
+  "name": "cabin-weather",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Front-end tests and screenshots for Cabin Weather. The site itself has no build step.",
+  "scripts": {
+    "test": "node --test e2e/formatter.test.js",
+    "screenshots": "playwright test",
+    "serve": "python3 e2e/serve.py 8765"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}

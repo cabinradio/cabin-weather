@@ -1,11 +1,13 @@
-# Tests on pull requests and on pipeline changes pushed to main. Playwright screenshots arrive with the front end.
+# Tests on pull requests and on pipeline or front-end changes pushed to main:
+# pytest plus an offline end-to-end for the pipeline, then the front-end formatter tests and
+# Playwright screenshots (375x812 and 1280x900) against a local copy of the site, uploaded as an artifact.
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
-    paths: ["pipeline/**", "pyproject.toml", ".github/workflows/ci.yml"]
+    paths: ["pipeline/**", "site/**", "e2e/**", "package.json", "package-lock.json", "playwright.config.js", "pyproject.toml", ".github/workflows/ci.yml"]
 
 env:
   PYTHONTZPATH: ""
@@ -27,3 +29,34 @@ jobs:
           python pipeline/fetch_citypage.py --no-live
           python pipeline/derive.py --offline
           python pipeline/validate.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+      - run: pip install -r pipeline/requirements.txt
+      - name: Build the data files the page reads
+        run: |
+          python pipeline/fetch_citypage.py --no-live
+          python pipeline/derive.py --offline
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Front-end formatter tests
+        run: npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Playwright screenshots and smoke checks
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: e2e/screenshots
+          if-no-files-found: ignore
