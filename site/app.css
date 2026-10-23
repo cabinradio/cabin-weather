@@ -1,7 +1,6 @@
 /* Cabin Weather. Every selector is scoped under #cabin-weather so nothing leaks into or out of cabinradio.ca.
    Tokens are the ones in docs/implementation-plan.md section 6; nothing else is used.
-   Links and the warning line are Cabin orange, as on the site, by Ollie's decision on 2026-10-23; Lighthouse marks
-   that down for contrast. Other text never uses --muted (#999 fails the same 4.5:1 rule); small text is --ink-3. */
+   Links are Cabin orange (Ollie, 2026-10-23); other text never uses --muted, which fails Lighthouse's contrast rule. */
 #cabin-weather{
   --font-body:'Domine',Georgia,serif;
   --font-head:'Lora',Georgia,serif;
@@ -37,13 +36,15 @@
 #cabin-weather .cw-name{font-size:40px}
 #cabin-weather .cw-pick{display:flex;flex-direction:column;gap:.2rem;font-size:12px;color:var(--ink-3);min-width:13rem}
 #cabin-weather .cw-pick select{font:inherit;font-family:var(--font-body);font-size:16px;line-height:1.3;color:var(--ink);background:#fff;border:1px solid var(--muted);border-radius:0;padding:.5rem .75rem;min-height:44px;width:100%;max-width:100%;margin:0;box-shadow:none}
+#cabin-weather .cw-links{margin:0 0 var(--space);font-size:.9em}
+#cabin-weather .cw-links a{display:inline-block;padding:.45rem 0;margin-right:1.5rem}
 #cabin-weather .cw-warning{margin-bottom:var(--space);color:var(--accent)}
 #cabin-weather .cw-warning a{color:inherit}
 #cabin-weather .cw-notice{margin:var(--space) 0}
 
 /* Sections: whitespace and one hairline rule */
 #cabin-weather .cw-sec{padding:calc(var(--space) * 1.5) 0 calc(var(--space) * 2);border-top:1px solid var(--rule)}
-#cabin-weather .cw-sec:first-child{border-top:0;padding-top:0}
+#cabin-weather .cw-sec:first-child,#cabin-weather .cw-over{border-top:0;padding-top:0}
 #cabin-weather .cw-sec h2,#cabin-weather .cw-sec h3{font-size:27px;margin-bottom:var(--space)}
 #cabin-weather .cw-muted{color:var(--ink-3)}
 
@@ -53,8 +54,8 @@
 #cabin-weather .cw-cond{font-size:27px;font-family:var(--font-head);font-weight:500;color:var(--ink-2)}
 #cabin-weather .cw-obs{margin-top:.75rem;color:var(--ink-3)}
 
-/* Next 24 hours: a strip that scrolls sideways on phones and fits on desktop */
-#cabin-weather .cw-hours{display:flex;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:.5rem}
+/* Next 24 hours: a strip that scrolls sideways on phones; on desktop every second hour so "-10C" never collides */
+#cabin-weather .cw-hours{display:flex;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding-bottom:.5rem}
 #cabin-weather .cw-hour{flex:0 0 48px;min-width:0;text-align:center;line-height:1.3;padding:.25rem 0}
 #cabin-weather .cw-hour-t{font-size:12px;color:var(--ink-3);white-space:nowrap}
 #cabin-weather .cw-hour .cw-glyph{width:24px;height:24px;margin:.35rem auto .2rem;display:block}
@@ -100,6 +101,26 @@
 #cabin-weather .cw-lines li{margin-bottom:.5rem}
 #cabin-weather .cw-lines li:last-child{margin-bottom:0}
 
+/* All-communities tables: no borders, grouped by region, one row per community */
+#cabin-weather .cw-all{width:100%;border-collapse:collapse;border-spacing:0;border:0;margin:0;font-size:1em;background:none}
+#cabin-weather .cw-all th,#cabin-weather .cw-all td{border:0;padding:.4rem .7rem .4rem 0;text-align:left;vertical-align:baseline;font-weight:400;background:none;color:var(--ink)}
+#cabin-weather .cw-all .cw-region th{padding:1.6rem 0 .3rem;font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--rule)}
+#cabin-weather .cw-all tbody:first-of-type .cw-region th{padding-top:.2rem}
+#cabin-weather .cw-all .cw-cname{font-family:var(--font-head);font-weight:500;white-space:nowrap}
+#cabin-weather .cw-all .cw-cname a{color:var(--ink-2);text-decoration:none;display:inline-block;padding:.2rem 0}
+#cabin-weather .cw-all .cw-cname a:hover,#cabin-weather .cw-all .cw-cname a:focus-visible{color:var(--accent);text-decoration:underline}
+#cabin-weather .cw-all .cw-cglyph{width:32px;padding-right:.5rem}
+#cabin-weather .cw-all .cw-cglyph .cw-glyph{width:24px;height:24px;display:block}
+#cabin-weather .cw-all .cw-ctemp{font-family:var(--font-head);font-weight:500;color:var(--ink-2);white-space:nowrap}
+#cabin-weather .cw-all .cw-ccond{color:var(--ink-3)}
+#cabin-weather .cw-all .cw-cwind{color:var(--ink-3);white-space:nowrap}
+#cabin-weather .cw-all .cw-t8{font-family:var(--font-head);font-weight:500;color:var(--ink-2);text-align:right;white-space:nowrap;padding-right:.45rem}
+#cabin-weather .cw-all thead .cw-t8,#cabin-weather .cw-all thead .cw-cname{font-family:var(--font-body);font-weight:400;font-size:12px;color:var(--ink-3)}
+#cabin-weather .cw-all .cw-cspark{width:80px;padding-right:.5rem}
+#cabin-weather .cw-spark{display:block;width:72px;height:20px;overflow:visible}
+#cabin-weather .cw-spark path{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+#cabin-weather .cw-small{font-size:12px;color:var(--ink-3)}
+
 /* Footer */
 #cabin-weather .cw-foot{font-size:12px;color:var(--ink-3);padding-top:var(--space);border-top:1px solid var(--rule)}
 #cabin-weather .cw-foot p{margin-bottom:.4rem}
@@ -107,8 +128,7 @@
 @media (min-width:720px){
   #cabin-weather .cw-hours{overflow-x:visible}
   #cabin-weather .cw-hour{flex:1 1 0}
-  #cabin-weather .cw-hour:nth-child(even) .cw-hour-t{visibility:hidden}
-  #cabin-weather .cw-hour-v{font-size:15px}
+  #cabin-weather .cw-hour:nth-child(even){display:none}
 }
 @media (max-width:600px){
   #cabin-weather{font-size:17px}
@@ -120,4 +140,22 @@
   #cabin-weather .cw-pick{min-width:0}
   #cabin-weather .cw-week li{grid-template-columns:1fr 36px auto;grid-template-areas:"day glyph temps" "text text text";row-gap:.1rem}
   #cabin-weather .cw-week .cw-text{font-size:.9em}
+  #cabin-weather .cw-all,#cabin-weather .cw-all thead,#cabin-weather .cw-all tbody{display:block}
+  #cabin-weather .cw-all tr{display:grid;grid-template-columns:auto auto 1fr;column-gap:.6rem;align-items:baseline;padding:.5rem 0;border-top:1px solid var(--rule)}
+  #cabin-weather .cw-all .cw-region,#cabin-weather .cw-all thead tr{display:block;border-top:0;padding:0}
+  #cabin-weather .cw-all thead.cw-sr{display:none}
+  #cabin-weather .cw-all th,#cabin-weather .cw-all td{padding:0;width:auto}
+  #cabin-weather .cw-all .cw-region th{display:block;padding:1.4rem 0 .3rem}
+  #cabin-weather .cw-all .cw-cname{grid-column:1/3;grid-row:1;white-space:normal}
+  #cabin-weather .cw-all .cw-ctemp{grid-column:3;grid-row:1;justify-self:end}
+  #cabin-weather .cw-all .cw-cglyph{grid-column:1;grid-row:2;align-self:center}
+  #cabin-weather .cw-all .cw-cwind,#cabin-weather .cw-all .cw-ccond{grid-row:2;font-size:.9em;min-width:0}
+  #cabin-weather .cw-all .cw-cwind:empty{display:none}
+  #cabin-weather .cw-all-24 tr{grid-template-columns:repeat(8,1fr);column-gap:.15rem;row-gap:.2rem}
+  #cabin-weather .cw-all-24 thead tr{display:grid;padding:.2rem 0 .6rem}
+  #cabin-weather .cw-all-24 thead .cw-cname,#cabin-weather .cw-all-24 thead .cw-cspark{display:none}
+  #cabin-weather .cw-all-24 .cw-cname{grid-column:1/7}
+  #cabin-weather .cw-all-24 .cw-cspark{grid-column:7/9;grid-row:1;justify-self:end;align-self:center;width:auto}
+  #cabin-weather .cw-all-24 .cw-t8{grid-row:2;text-align:left;font-size:.85em;padding:0}
+  #cabin-weather .cw-all-24 thead .cw-t8{grid-row:1}
 }

@@ -1,9 +1,11 @@
 /* Cabin Weather front end. Vanilla JS, no dependencies, no build step.
 
-   Reads data/current.json, data/forecast/{slug}.json and data/history/{slug}.json from
-   wherever this script was served, and renders one community into #cabin-weather. The
-   formatter at the top mirrors pipeline/formatters.py and is tested by e2e/formatter.test.js;
-   everything a reader sees goes through it. Spec: docs/implementation-plan.md sections 5 to 7. */
+   Reads data/current.json, data/forecast/{slug}.json and data/history/{slug}.json from wherever
+   this script was served, and renders the community or overview named in the URL hash into
+   #cabin-weather. The two-week charts and the history sentences live in history.js, which this
+   file loads only for the six history communities. The formatter here mirrors
+   pipeline/formatters.py and is tested by e2e/formatter.test.js; everything a reader sees goes
+   through it. Spec: docs/implementation-plan.md sections 5 to 7. */
 (function () {
 'use strict';
 
@@ -12,6 +14,9 @@ const TZ_LABEL = 'MT';          // ARCHITECTURE.md, Time: the one label to revis
 const DEFAULT_OFFSET = -360;    // minutes east of UTC, used only when a timestamp carries no offset
 const DEFAULT_SLUG = 'yellowknife';
 const STALE_HOURS = 3;
+const REGIONS = ['North Slave', 'Tłı̨chǫ', 'South Slave', 'Dehcho', 'Sahtu', 'Beaufort Delta'];   // regions_order in pipeline/config/communities.json
+const VIEWS = {'all-now': 'All communities now', 'all-24h': 'Next 24 hours, all communities'};
+const NWT_URL = 'https://weather.gc.ca/forecast/canada/index_e.html?id=NT';
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SMALL = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
@@ -92,6 +97,7 @@ function fmtDateRange(a, b) {            // October 1–18, or September 28 – 
 }
 function clock(s) { const m = /^(\d{2}):(\d{2})$/.exec(s || ''); return m ? {h: +m[1], mi: +m[2]} : null; }
 function dateText(iso, nowP) { const p = parseISO(iso); return p ? fmtDate(p, {year: !nowP || p.y !== nowP.y}) : null; }
+function isoDate(p) { return p.y + '-' + (p.mo < 10 ? '0' : '') + p.mo + '-' + (p.d < 10 ? '0' : '') + p.d; }
 
 function anomalyPhrase(a) {
   if (a == null) return null;
@@ -100,33 +106,7 @@ function anomalyPhrase(a) {
   return 'about ' + t + 'C ' + (a > 0 ? 'above' : 'below') + ' normal';
 }
 
-// ---------------------------------------------------------------- style check (mirrors formatters.style_problems)
-
-const STYLE_RULES = [
-  ['em dash', /—/],
-  ['degree sign', /[°℃]/],
-  ['Unicode minus', /−/],
-  ['today/yesterday/tomorrow', /\b(today|yesterday|tomorrow)\b/i],
-  ['NT for the territory', /\bNT\b/],
-  ['percent sign', /%/],
-  ['exclamation mark', /!/],
-  ["'over' before a number", /\bover\s+-?\d/i],
-  ['abbreviation with periods', /\b(?:[A-Za-z]\.){2,}/],
-  ['okay', /\bokay\b/i],
-  ['underway as one word', /\bunderway\b/i],
-  ["'minus' before a temperature", /\bminus\s+\d/i],
-  ['hyphen used as a range or break', /\d\s-\s\d|\s-\s/],
-];
-function styleProblems(text) { return STYLE_RULES.filter(r => r[1].test(text)).map(r => r[0]); }
-
 // ---------------------------------------------------------------- generated text (pure functions, tested)
-
-const FLAG_TEXT = {
-  record_high: 'A record high for the date.', high_top3: 'One of the three warmest highs for the date.',
-  record_low: 'A record low for the date.', low_top3: 'One of the three coldest lows for the date.',
-  record_warm_low: 'The warmest overnight low recorded for the date.', warm_low_top3: 'One of the three warmest overnight lows for the date.',
-  record_cold_high: 'The coldest daytime high recorded for the date.', cold_high_top3: 'One of the three coldest daytime highs for the date.',
-};
 
 const T = {
   windLine(c) {
@@ -136,6 +116,14 @@ const T = {
     if (DIRS[c.wind_dir]) s += ' from the ' + DIRS[c.wind_dir];
     else if (c.wind_dir === 'VR') s += ' from variable directions';
     if (c.wind_gust_kmh != null) s += ', gusting to ' + fmtMeasure(c.wind_gust_kmh, 'km/h');
+    return s;
+  },
+  windShort(c) {                         // for the overview table: 16 km/h SSW, gusts 40
+    if (c.wind_kmh == null) return null;
+    if (c.wind_kmh === 0) return 'Calm';
+    let s = fmtMeasure(c.wind_kmh, 'km/h');
+    if (DIRS[c.wind_dir]) s += ' ' + c.wind_dir; else if (c.wind_dir === 'VR') s += ' variable';
+    if (c.wind_gust_kmh != null) s += ', gusts ' + fmtNumber(c.wind_gust_kmh);
     return s;
   },
   nowFacts(c) {
@@ -178,111 +166,18 @@ const T = {
     if (!r || !s) return null;
     return 'Sunrise ' + fmtTime(r) + ', sunset ' + fmtTime(s) + '.';
   },
-  periodLines(p) {
-    const out = [];
-    if (!p) return out;
-    const label = p.label || p.name;
-    if (p.mean != null) {
-      let lead = cap(label);
-      if (/so far$/.test(label) && p.from) lead += ', since ' + fmtDate(parseISO(p.from)) + ',';
-      let s = lead + ' averaged ' + fmtTemp(p.mean, 1);
-      const a = anomalyPhrase(p.anomaly);
-      if (a) s += ', ' + a;
-      s += '.';
-      if (p.rank_text) s += ' That is the ' + p.rank_text + '.';
-      out.push(s);
-    }
-    if (p.precip != null) {
-      let s = 'Precipitation was ' + fmtMeasure(p.precip, 'mm', 1);
-      if (p.precip_normal != null) s += ' against a normal of ' + fmtMeasure(p.precip_normal, 'mm', 1);
-      if (p.wettest_rank && p.of) s += ', the ' + ordinal(p.wettest_rank) + ' wettest in ' + numWords(p.of) + ' years';
-      out.push(s + '.');
-    }
-    const recs = [];
-    if (p.record_warm && p.record_warm.value != null) recs.push('Warmest ' + label + ' on record: ' + fmtTemp(p.record_warm.value, 1) + ' in ' + p.record_warm.year);
-    if (p.record_cold && p.record_cold.value != null) recs.push((recs.length ? 'Coldest: ' : 'Coldest ' + label + ' on record: ') + fmtTemp(p.record_cold.value, 1) + ' in ' + p.record_cold.year);
-    if (p.record_wet && p.record_wet.value != null) recs.push((recs.length ? 'Wettest: ' : 'Wettest ' + label + ' on record: ') + fmtMeasure(p.record_wet.value, 'mm', 1) + ' in ' + p.record_wet.year);
-    if (recs.length) out.push(recs.join('. ') + '.');
-    return out;
-  },
-  plusLines(plus, nowP) {
-    const out = [];
-    if (!plus) return out;
-    if (plus.days_since_minus30 != null) {
-      const when = plus.last_minus30 ? dateText(plus.last_minus30, nowP) : null;
-      const n = plus.days_since_minus30;
-      if (n === 0) out.push('The overnight low reached -30C' + (when ? ' on ' + when : '') + '.');
-      else out.push('It has been ' + numWords(n) + (n === 1 ? ' day' : ' days') + ' since the last -30C night' + (when ? ', on ' + when : '') + '.');
-    }
-    const nots = [];
-    if (plus.first_frost) out.push('The first frost of the season came on ' + dateText(plus.first_frost, nowP) + '.'); else nots.push('frost');
-    if (plus.first_minus10) out.push('The first -10C night came on ' + dateText(plus.first_minus10, nowP) + '.'); else nots.push('-10C night');
-    if (plus.first_snow) out.push('The first snow came on ' + dateText(plus.first_snow, nowP) + '.'); else nots.push('snow');
-    if (nots.length) out.push('No ' + (nots.length > 1 ? nots.slice(0, -1).join(', ') + ' or ' + nots[nots.length - 1] : nots[0]) + ' yet this season.');
-    if (plus.snow_on_ground != null) {
-      const on = plus.snow_on_ground_date ? ' on ' + dateText(plus.snow_on_ground_date, nowP) : '';
-      out.push(plus.snow_on_ground > 0 ? 'Snow on the ground: ' + fmtMeasure(plus.snow_on_ground, 'cm') + on + '.' : 'No snow on the ground' + on + '.');
-    }
-    if (plus.season_snowfall != null && plus.season_snowfall > 0) out.push('Snowfall since August 1: ' + fmtMeasure(plus.season_snowfall, 'cm', 1) + '.');
-    return out;
-  },
-  recordLines(h, cal, name) {
-    const a = h.alltime || {};
-    const out = [];
-    const on = e => (e.date ? ', on ' + fmtDate(parseISO(e.date), {year: true}) : '');
-    const hi = a.high, lo = a.low;
-    if (hi && hi.value != null) {
-      let s = name + "'s highest temperature since " + h.record_start + ' is ' + fmtTemp(hi.value, 1) + on(hi);
-      if (lo && lo.value != null) s += ', and its lowest ' + fmtTemp(lo.value, 1) + on(lo);
-      out.push(s + '.');
-    } else if (lo && lo.value != null) {
-      out.push(name + "'s lowest temperature since " + h.record_start + ' is ' + fmtTemp(lo.value, 1) + on(lo) + '.');
-    }
-    const parts = [];
-    if (a.wettest_day && a.wettest_day.value != null) parts.push('The wettest day brought ' + fmtMeasure(a.wettest_day.value, 'mm', 1) + on(a.wettest_day) + '.');
-    if (a.windiest_gust && a.windiest_gust.value != null) parts.push('The strongest gust on record is ' + fmtMeasure(a.windiest_gust.value, 'km/h') + on(a.windiest_gust) + '.');
-    if (parts.length) out.push(parts.join(' '));
-    if (cal) {
-      const p = parseISO(cal.date);
-      const bits = [];
-      if (cal.record_high != null) bits.push('the record high is ' + fmtTemp(cal.record_high, 1) + (cal.record_high_year ? ', set in ' + cal.record_high_year : ''));
-      if (cal.record_low != null) bits.push('the record low ' + (bits.length ? '' : 'is ') + fmtTemp(cal.record_low, 1) + (cal.record_low_year ? ', set in ' + cal.record_low_year : ''));
-      let s = bits.length ? 'On ' + fmtDate(p) + ' ' + bits.join(', and ') + '.' : '';
-      if (cal.record_precip != null) s += (s ? ' ' : '') + 'The wettest ' + fmtDate(p) + ' brought ' + fmtMeasure(cal.record_precip, 'mm', 1) + (cal.record_precip_year ? ' in ' + cal.record_precip_year : '') + '.';
-      if (s) out.push(s);
-    }
-    return out;
-  },
-  dayDetail(d) {
-    const p = parseISO(d.date);
-    const hl = [];
-    if (d.max != null) hl.push('high ' + fmtTemp(d.max, 1));
-    if (d.min != null) hl.push('low ' + fmtTemp(d.min, 1));
-    let s = fmtDate(p, {weekday: true}) + ': ' + (hl.length ? hl.join(', ') : 'no observation') + '.';
-    if (d.normal_max != null && d.normal_min != null) s += ' Normal ' + fmtTemp(d.normal_max, 1) + ' and ' + fmtTemp(d.normal_min, 1) + '.';
-    if (d.precip != null) s += ' Precipitation ' + fmtMeasure(d.precip, 'mm', 1) + '.';
-    if (d.gust != null) s += ' Peak gust ' + fmtMeasure(d.gust, 'km/h') + '.';
-    const recs = [];
-    if (d.record_high != null) recs.push('record high ' + fmtTemp(d.record_high, 1) + (d.record_high_year ? ' in ' + d.record_high_year : ''));
-    if (d.record_low != null) recs.push('record low ' + fmtTemp(d.record_low, 1) + (d.record_low_year ? ' in ' + d.record_low_year : ''));
-    if (recs.length) s += ' ' + cap(recs.join(', ')) + '.';
-    (d.flags || []).forEach(f => { if (FLAG_TEXT[f]) s += ' ' + FLAG_TEXT[f]; });
-    return s;
-  },
   footerLine(c, generatedAt, offset) {
     const parts = ['Based on Environment and Climate Change Canada data.'];
-    if (c.station) parts.push('Observations from ' + c.station + '.');
+    if (c && c.station) parts.push('Observations from ' + c.station + '.');
     const g = parseISO(generatedAt);
     if (g) parts.push('Updated ' + fmtTime(shift(utcMillis(g), offset), {tz: true}) + '.');
     return parts.join(' ');
   },
-  stationLabel(s) { return s ? s.replace(/\sA$/, ' Airport') : ''; },
 };
 
 // ---------------------------------------------------------------- DOM helpers
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-let uid = 0;
 function setAttrs(node, attrs) {
   if (!attrs) return;
   Object.keys(attrs).forEach(k => {
@@ -306,209 +201,22 @@ function glyph(name, label) {
   return s;
 }
 function fx(n) { return Math.round(n * 10) / 10; }
-
-// ---------------------------------------------------------------- charts (hand-drawn SVG)
-
-function niceTicks(lo, hi, count) {
-  if (!(hi > lo)) hi = lo + 1;
-  const span = hi - lo;
-  const mag = Math.pow(10, Math.floor(Math.log(span / count) / Math.LN10));
-  let step = mag * 10;
-  [1, 2, 5, 10].some(m => { step = m * mag; return span / step <= count; });
-  const min = Math.floor(lo / step) * step, max = Math.ceil(hi / step) * step;
-  const values = [];
-  for (let v = min; v <= max + step / 2; v += step) values.push(Math.round(v / step) * step);
-  return {min: min, max: max, step: step, values: values};
-}
-function makeChart(width, H, title, subtitle, margin) {
-  const M = Object.assign({t: 24, r: 50, b: 40, l: 44}, margin);
-  const capId = 'cw-cap-' + (++uid);
-  const s = svg('svg', {class: 'cw-chart', viewBox: '0 0 ' + width + ' ' + H, width: width, height: H, role: 'img', 'aria-label': title, 'aria-describedby': capId, focusable: 'false'});
-  const fig = el('figure', null, [el('figcaption', null, [el('b', {text: title}), el('span', {id: capId, text: subtitle})]), s]);
-  return {fig: fig, svg: s, M: M, width: width, H: H};
-}
-function scaleY(ch, t) { return v => ch.M.t + (t.max - v) / (t.max - t.min) * (ch.H - ch.M.t - ch.M.b); }
-function drawGrid(ch, t, y, fmt) {
-  t.values.forEach(v => {
-    ch.svg.appendChild(svg('line', {class: 'cw-grid', x1: ch.M.l, x2: ch.width - ch.M.r, y1: fx(y(v)), y2: fx(y(v))}));
-    ch.svg.appendChild(svg('text', {x: ch.M.l - 8, y: fx(y(v) + 4), 'text-anchor': 'end', text: fmt(v)}));
-  });
-}
-function dayLabels(ch, dates, x, slot) {      // dates: parsed days in order; day numbers plus the month name where it changes
-  const firstOfMonth = dates.findIndex(p => p.d === 1);
-  dates.forEach((p, i) => {
-    ch.svg.appendChild(svg('text', {x: fx(x(i)), y: ch.H - ch.M.b + 18, 'text-anchor': 'middle', text: String(p.d)}));
-    if ((i === 0 && (firstOfMonth < 0 || firstOfMonth > 4)) || p.d === 1) {
-      ch.svg.appendChild(svg('text', {x: fx(x(i) - slot / 2), y: ch.H - ch.M.b + 34, text: MONTHS[p.mo - 1]}));
-    }
-  });
-}
-function linePath(items, x, y, key) {
+function sparkline(values) {             // a tiny line of the 24 hourly temperatures, scaled to its own row
+  const known = values.filter(v => v != null);
+  if (known.length < 2) return null;
+  const W = 72, H = 20, lo = Math.min.apply(null, known), span = (Math.max.apply(null, known) - lo) || 1, n = values.length;
   let d = '', pen = false;
-  items.forEach((it, i) => {
-    if (it[key] == null) { pen = false; return; }
-    d += (pen ? 'L' : 'M') + fx(x(i)) + ' ' + fx(y(it[key]));
+  values.forEach((v, i) => {
+    if (v == null) { pen = false; return; }
+    d += (pen ? 'L' : 'M') + fx(1 + i / (n - 1) * (W - 2)) + ' ' + fx(H - 2 - (v - lo) / span * (H - 4));
     pen = true;
   });
-  return d;
-}
-function bandPath(items, x, y, slot, topKey, botKey) {
-  let d = '', run = [];
-  const flush = () => {
-    if (run.length) {
-      const pts = run.map(i => [x(i), items[i][topKey], items[i][botKey]]);
-      pts.unshift([x(run[0]) - slot / 2, items[run[0]][topKey], items[run[0]][botKey]]);
-      pts.push([x(run[run.length - 1]) + slot / 2, items[run[run.length - 1]][topKey], items[run[run.length - 1]][botKey]]);
-      d += 'M' + pts.map(p => fx(p[0]) + ' ' + fx(y(p[1]))).join('L') + 'L' + pts.slice().reverse().map(p => fx(p[0]) + ' ' + fx(y(p[2]))).join('L') + 'Z';
-    }
-    run = [];
-  };
-  items.forEach((it, i) => { if (it[topKey] != null && it[botKey] != null) run.push(i); else flush(); });
-  flush();
-  return d;
-}
-function extent(items, keys) {
-  let lo = Infinity, hi = -Infinity;
-  items.forEach(it => keys.forEach(k => { if (it[k] != null) { lo = Math.min(lo, it[k]); hi = Math.max(hi, it[k]); } }));
-  return lo === Infinity ? null : [lo, hi];
-}
-
-const FLAG_MARK = {
-  record_high: ['max', true, 'Record'], high_top3: ['max', false, 'Top 3'], record_cold_high: ['max', true, 'Record'], cold_high_top3: ['max', false, 'Top 3'],
-  record_low: ['min', true, 'Record'], low_top3: ['min', false, 'Top 3'], record_warm_low: ['min', true, 'Record'], warm_low_top3: ['min', false, 'Top 3'],
-};
-
-function tempChart(h, width, mobile) {
-  const days = h.days, n = days.length;
-  const ext = extent(days, ['max', 'min', 'normal_max', 'normal_min', 'range_max_hi', 'range_min_lo']);
-  if (!n || !ext) return null;
-  const dates = days.map(d => parseISO(d.date));
-  const title = 'Daily high and low, ' + fmtDateRange(dates[0], dates[n - 1]);
-  const sub = 'Highs and lows in orange, the ' + h.normal_period + ' normal high to low in darker grey and the ' + h.range_period + ' range in lighter grey. Record days are marked.';
-  const ch = makeChart(width, mobile ? 260 : 300, title, sub);
-  const M = ch.M, s = ch.svg;
-  const slot = (width - M.l - M.r) / n, x = i => M.l + (i + 0.5) * slot;
-  const t = niceTicks(ext[0], ext[1], 7), y = scaleY(ch, t);
-  s.appendChild(svg('path', {class: 'cw-range', d: bandPath(days, x, y, slot, 'range_max_hi', 'range_min_lo')}));
-  s.appendChild(svg('path', {class: 'cw-normal', d: bandPath(days, x, y, slot, 'normal_max', 'normal_min')}));
-  const marker = svg('rect', {class: 'cw-sel', x: 0, y: M.t, width: fx(slot), height: ch.H - M.t - M.b});
-  marker.style.display = 'none';
-  s.appendChild(marker);
-  drawGrid(ch, t, y, v => fmtTemp(v));
-  dayLabels(ch, dates, x, slot);
-  ['max', 'min'].forEach(k => s.appendChild(svg('path', {class: 'cw-line', d: linePath(days, x, y, k)})));
-  days.forEach((d, i) => ['max', 'min'].forEach(k => { if (d[k] != null) s.appendChild(svg('circle', {class: 'cw-dot', cx: fx(x(i)), cy: fx(y(d[k])), r: 3})); }));
-  const lastLabel = {max: -Infinity, min: -Infinity};
-  days.forEach((d, i) => {
-    const marks = {};
-    (d.flags || []).forEach(f => { const m = FLAG_MARK[f]; if (m && (!marks[m[0]] || m[1])) marks[m[0]] = m; });
-    Object.keys(marks).forEach(k => {
-      if (d[k] == null) return;
-      const m = marks[k], cx = x(i), cy = y(d[k]);
-      const bump = cx - lastLabel[k] < 44 ? 12 : 0;      // consecutive flagged days: stagger the labels
-      lastLabel[k] = cx;
-      s.appendChild(svg('circle', {class: m[1] ? 'cw-dot' : 'cw-ring', cx: fx(cx), cy: fx(cy), r: 5}));
-      s.appendChild(svg('text', {class: 'cw-label', x: fx(Math.max(M.l + 20, Math.min(width - M.r - 20, cx))), y: fx(cy + (k === 'max' ? -10 - bump : 18 + bump)), 'text-anchor': 'middle', text: m[2]}));
-    });
-  });
-  const ends = {};
-  ['max', 'min'].forEach(k => { for (let i = n - 1; i >= 0; i--) if (days[i][k] != null) { ends[k] = {x: x(i), y: y(days[i][k])}; break; } });
-  if (ends.max && ends.min && Math.abs(ends.max.y - ends.min.y) < 16) { ends.max.y -= 8 - (ends.min.y - ends.max.y) / 2; ends.min.y += 8 - (ends.min.y - ends.max.y) / 2; }
-  if (ends.max) s.appendChild(svg('text', {class: 'cw-label', x: fx(ends.max.x + 10), y: fx(ends.max.y + 4), text: 'High'}));
-  if (ends.min) s.appendChild(svg('text', {class: 'cw-label', x: fx(ends.min.x + 10), y: fx(ends.min.y + 4), text: 'Low'}));
-  // Tap or click anywhere on the chart to read a day; arrow keys do the same from the keyboard.
-  const detail = el('p', {class: 'cw-detail', 'aria-live': 'polite', text: 'Select a day to see its numbers.'});
-  let selected = -1;
-  const select = i => {
-    selected = Math.max(0, Math.min(n - 1, i));
-    marker.setAttribute('x', fx(M.l + selected * slot));
-    marker.style.display = '';
-    detail.textContent = T.dayDetail(days[selected]);
-  };
-  s.setAttribute('role', 'group');
-  s.setAttribute('tabindex', '0');
-  s.setAttribute('aria-label', title + '. Use the left and right arrow keys to read each day.');
-  s.addEventListener('click', e => {
-    const r = s.getBoundingClientRect();
-    select(Math.floor(((e.clientX - r.left) * (width / r.width) - M.l) / slot));
-  });
-  s.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight') { e.preventDefault(); select(selected < 0 ? 0 : selected + 1); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); select(selected < 0 ? n - 1 : selected - 1); }
-    else if (e.key === 'Home') { e.preventDefault(); select(0); }
-    else if (e.key === 'End') { e.preventDefault(); select(n - 1); }
-  });
-  ch.fig.appendChild(detail);
-  ch.fig.appendChild(el('ul', {class: 'cw-sr'}, days.map(d => el('li', {text: T.dayDetail(d)}))));
-  return ch;
-}
-
-function precipChart(h, width) {
-  const days = h.days, n = days.length;
-  if (!days.some(d => d.precip != null)) return null;
-  const ext = extent(days, ['precip', 'normal_precip']);
-  let total = 0, normal = 0, counted = 0;
-  days.forEach(d => { if (d.precip != null) { total += d.precip; counted++; if (d.normal_precip != null) normal += d.normal_precip; } });
-  const lead = counted === n ? 'The fortnight brought ' : 'The ' + numWords(counted) + ' days with observations brought ';
-  const sub = 'Daily precipitation in blue-grey; the dashed line is the ' + h.normal_period + ' normal. ' + lead + fmtMeasure(total, 'mm', 1) + (normal > 0 ? ' against a normal of ' + fmtMeasure(normal, 'mm', 1) : '') + '.';
-  const ch = makeChart(width, 150, 'Precipitation, mm', sub, {t: 16, b: 40});
-  const M = ch.M, s = ch.svg;
-  const slot = (width - M.l - M.r) / n, x = i => M.l + (i + 0.5) * slot;
-  const t = niceTicks(0, Math.max(1, ext[1]) * 1.08, 3), y = scaleY(ch, t);
-  drawGrid(ch, t, y, v => fmtMeasure(v, 'mm', v === 0 || t.step >= 1 ? 0 : 1));
-  dayLabels(ch, days.map(d => parseISO(d.date)), x, slot);
-  days.forEach((d, i) => {
-    if (d.precip == null) return;
-    const hgt = y(0) - y(d.precip);
-    s.appendChild(svg('rect', {class: 'cw-bar', x: fx(x(i) - slot * 0.3), y: fx(y(d.precip)), width: fx(slot * 0.6), height: fx(Math.max(hgt, d.precip > 0 ? 1 : 0))}));
-  });
-  s.appendChild(svg('path', {class: 'cw-norm-line', d: linePath(days, x, y, 'normal_precip')}));
-  return ch;
-}
-
-function gustChart(h, width) {
-  const days = h.days, n = days.length;
-  let maxI = -1, max = -Infinity;
-  days.forEach((d, i) => { if (d.gust != null && d.gust > max) { max = d.gust; maxI = i; } });
-  if (maxI < 0) return null;
-  const sub = 'The strongest gust was ' + fmtMeasure(max, 'km/h') + ' on ' + fmtDate(parseISO(days[maxI].date)) + '. ECCC does not record gusts under 31 km/h, so calmer days are blank.';
-  const ch = makeChart(width, 110, 'Peak gust each day, km/h', sub, {t: 26, b: 40});
-  const M = ch.M, s = ch.svg;
-  const slot = (width - M.l - M.r) / n, x = i => M.l + (i + 0.5) * slot;
-  const t = {min: 0, max: Math.ceil(max * 1.15 / 10) * 10}, y = scaleY(ch, t);
-  s.appendChild(svg('line', {class: 'cw-grid', x1: M.l, x2: width - M.r, y1: fx(y(0)), y2: fx(y(0))}));
-  dayLabels(ch, days.map(d => parseISO(d.date)), x, slot);
-  s.appendChild(svg('path', {class: 'cw-bar-line', d: linePath(days, x, y, 'gust')}));
-  days.forEach((d, i) => { if (d.gust != null) s.appendChild(svg('circle', {class: 'cw-bar-dot', cx: fx(x(i)), cy: fx(y(d.gust)), r: 3})); });
-  s.appendChild(svg('text', {x: fx(x(maxI)), y: fx(y(max) - 9), 'text-anchor': 'middle', text: fmtMeasure(max, 'km/h')}));
-  return ch;
-}
-
-function windchillChart(h, width, mobile) {
-  const hrs = (h.plus && h.plus.windchill_hourly) || [], n = hrs.length;
-  let minI = -1, min = Infinity;
-  hrs.forEach((p, i) => { if (p.wind_chill != null && p.wind_chill < min) { min = p.wind_chill; minI = i; } });
-  if (minI < 0) return null;
-  const ext = extent(hrs, ['temp', 'wind_chill']);
-  const times = hrs.map(p => parseISO(p.time)), when = times[minI];
-  const sub = 'Hourly temperature in grey and wind chill in orange at ' + T.stationLabel(h.station) + '. ECCC calculates wind chill only when it is cold and windy enough; the coldest in the fortnight was ' + fmtWindchill(min) + ' at ' + fmtTime(when) + ' on ' + fmtDate(when) + '.';
-  const ch = makeChart(width, mobile ? 220 : 240, 'Hourly wind chill, ' + fmtDateRange(times[0], times[n - 1]), sub);
-  const M = ch.M, s = ch.svg;
-  const slot = (width - M.l - M.r) / n, x = i => M.l + (i + 0.5) * slot;
-  const t = niceTicks(ext[0], ext[1], 7), y = scaleY(ch, t);
-  drawGrid(ch, t, y, v => fmtTemp(v));
-  const noons = [];
-  times.forEach((p, i) => { if (p.h === 12 && p.mi === 0) noons.push({i: i, p: p}); });
-  const dayWidth = noons.length > 1 ? x(noons[1].i) - x(noons[0].i) : slot * 24;
-  dayLabels(ch, noons.map(q => q.p), j => x(noons[j].i), dayWidth);
-  s.appendChild(svg('path', {class: 'cw-line-2', d: linePath(hrs, x, y, 'temp')}));
-  s.appendChild(svg('path', {class: 'cw-line', d: linePath(hrs, x, y, 'wind_chill')}));
-  return ch;
+  return svg('svg', {class: 'cw-spark', viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, 'aria-hidden': 'true', focusable: 'false'}, [svg('path', {d: d})]);
 }
 
 // ---------------------------------------------------------------- the app
 
-const state = {root: null, standalone: false, current: null, slug: null, offset: DEFAULT_OFFSET, cache: {}, sec: {}, history: null, width: 0};
+const state = {root: null, standalone: false, current: null, slug: null, offset: DEFAULT_OFFSET, cache: {}, sec: {}, history: null, width: 0, histLoad: null};
 let BASE = './';
 
 function getJSON(url) {
@@ -523,8 +231,8 @@ function load(kind, slug) {
 }
 function noop() {}
 function nowParts() { return shift(Date.now(), state.offset); }
-function isoDate(p) { return p.y + '-' + (p.mo < 10 ? '0' : '') + p.mo + '-' + (p.d < 10 ? '0' : '') + p.d; }
 function chartWidth() { return Math.max(280, state.root.clientWidth || 710); }
+function offsetOf(c) { const p = c && parseISO(c.observed_at); return p && p.off != null ? p.off : DEFAULT_OFFSET; }
 
 function buildSkeleton() {
   const root = state.root;
@@ -535,6 +243,8 @@ function buildSkeleton() {
   state.select = el('select');
   state.pick = el('label', {class: 'cw-pick', hidden: true}, [el('span', {text: 'Change community'}), state.select]);
   root.appendChild(el('div', {class: 'cw-head'}, [state.name, state.pick]));
+  state.links = el('p', {class: 'cw-links', hidden: true}, Object.keys(VIEWS).map(k => el('a', {href: '#' + k, text: VIEWS[k]})));
+  root.appendChild(state.links);
   state.warning = el('p', {class: 'cw-warning', hidden: true});
   state.notice = el('p', {class: 'cw-notice', hidden: true});
   root.appendChild(state.warning);
@@ -546,6 +256,8 @@ function buildSkeleton() {
     state.sec[pair[0]] = {sec: sec, body: body};
     main.appendChild(sec);
   });
+  state.over = el('div', {class: 'cw-sec cw-over', hidden: true});
+  main.appendChild(state.over);
   state.foot = el('footer', {class: 'cw-foot', hidden: true});
   main.appendChild(state.foot);
   root.appendChild(main);
@@ -561,43 +273,66 @@ function fetchIcons() {
     state.root.insertBefore(holder, state.root.firstChild);
   }).catch(noop);
 }
+function historyCode() {                 // history.js, loaded once, on demand
+  if (CW.history) return Promise.resolve(CW.history);
+  if (!state.histLoad) {
+    state.histLoad = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = BASE + 'history.js';
+      s.async = true;
+      s.onload = () => (CW.history ? resolve(CW.history) : reject(new Error('history.js')));
+      s.onerror = () => { state.histLoad = null; reject(new Error('history.js')); };
+      document.head.appendChild(s);
+    });
+  }
+  return state.histLoad;
+}
 
+function byRegion() {                    // {region: [slug, ...]} with regions in REGIONS order and names alphabetical
+  const comms = state.current.communities, groups = {};
+  Object.keys(comms).forEach(slug => (groups[comms[slug].region] = groups[comms[slug].region] || []).push(slug));
+  const order = REGIONS.filter(r => groups[r]).concat(Object.keys(groups).filter(r => REGIONS.indexOf(r) < 0).sort());
+  return order.map(region => ({region: region, slugs: groups[region].sort((a, b) => comms[a].name.localeCompare(comms[b].name))}));
+}
 function buildSelect() {
-  const comms = state.current.communities, byRegion = {};
-  Object.keys(comms).forEach(slug => { const c = comms[slug]; (byRegion[c.region] = byRegion[c.region] || []).push({slug: slug, name: c.name}); });
-  const sel = state.select;
+  const comms = state.current.communities, sel = state.select;
   sel.textContent = '';
-  Object.keys(byRegion).sort((a, b) => a.localeCompare(b)).forEach(region => {
-    const group = el('optgroup', {label: region});
-    byRegion[region].sort((a, b) => a.name.localeCompare(b.name)).forEach(c => group.appendChild(el('option', {value: c.slug, text: c.name})));
+  sel.appendChild(el('option', {value: '', text: 'Pick a community'}));
+  byRegion().forEach(g => {
+    const group = el('optgroup', {label: g.region});
+    g.slugs.forEach(slug => group.appendChild(el('option', {value: slug, text: comms[slug].name})));
     sel.appendChild(group);
   });
-  sel.addEventListener('change', () => { location.hash = sel.value; });
+  sel.addEventListener('change', () => { if (sel.value) location.hash = sel.value; });
   state.pick.hidden = false;
+  state.links.hidden = false;
 }
 
 function route() {
   const comms = state.current.communities;
-  let slug = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
-  if (!comms[slug]) slug = comms[DEFAULT_SLUG] ? DEFAULT_SLUG : Object.keys(comms)[0];
+  const hash = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
+  if (VIEWS[hash]) { state.slug = hash; showOverview(hash); return; }
+  const slug = comms[hash] ? hash : (comms[DEFAULT_SLUG] ? DEFAULT_SLUG : Object.keys(comms)[0]);
   state.slug = slug;
   show(slug);
 }
+function setTitle(text) { if (state.standalone) document.title = text + ' ' + EN + ' Cabin Radio'; }
 
 function show(slug) {
   const c = state.current.communities[slug];
-  const obs = parseISO(c.observed_at);
-  state.offset = obs && obs.off != null ? obs.off : DEFAULT_OFFSET;
+  state.offset = offsetOf(c);
   state.history = null;
   state.name.textContent = c.name;
   state.select.value = slug;
-  if (state.standalone) document.title = c.name + ' weather ' + EN + ' Cabin Radio';
+  setTitle(c.name + ' weather');
+  state.over.hidden = true;
+  state.over.textContent = '';
   renderWarning(c);
   renderNow(c);
   ['hours', 'week', 'fortnight', 'period', 'records'].forEach(hide);
   renderFooter(c, null);
   load('forecast', slug).then(f => { if (state.slug === slug) renderForecast(c, f); }, noop);
-  if (c.tier !== 'forecast') load('history', slug).then(h => { if (state.slug === slug) renderHistory(c, h); }, noop);
+  if (c.tier !== 'forecast') Promise.all([load('history', slug), historyCode()]).then(r => { if (state.slug === slug) renderHistory(c, r[0]); }, noop);
   const yk = state.current.communities[DEFAULT_SLUG];
   if (slug !== DEFAULT_SLUG && yk) { load('forecast', DEFAULT_SLUG).catch(noop); if (yk.tier !== 'forecast') load('history', DEFAULT_SLUG).catch(noop); }
 }
@@ -614,6 +349,11 @@ function renderWarning(c) {
   state.warning.appendChild(document.createTextNode(w.tail));
 }
 
+function isStale(c) {
+  const g = parseISO(state.current.generated_at);
+  return !!c.stale || !!(g && (Date.now() - utcMillis(g)) / 36e5 > STALE_HOURS);
+}
+
 function renderNow(c) {
   const nodes = [];
   const line = el('div', {class: 'cw-now'});
@@ -622,8 +362,7 @@ function renderNow(c) {
   if (line.childNodes.length) nodes.push(line);
   const facts = T.nowFacts(c);
   if (facts.length) nodes.push(el('ul', {class: 'cw-facts'}, facts.map(f => el('li', {text: f}))));
-  const g = parseISO(state.current.generated_at);
-  const stale = !!c.stale || (g && (Date.now() - utcMillis(g)) / 36e5 > STALE_HOURS);
+  const stale = isStale(c);
   const obs = T.observedLine(c, nowParts());
   if (obs || stale) nodes.push(el('p', {class: 'cw-obs'}, [obs ? obs + ' ' : null, stale ? el('span', {class: 'cw-muted', text: 'Observations are delayed.'}) : null]));
   if (nodes.length) fill('now', nodes); else hide('now');
@@ -664,20 +403,8 @@ function renderForecast(c, f) {
 
 function renderHistory(c, h) {
   state.history = {c: c, h: h};
-  const width = chartWidth(), mobile = width < 600;
-  state.width = width;
-  const nodes = [];
-  const charts = [tempChart(h, width, mobile), h.summary ? el('p', {class: 'cw-summary', text: h.summary}) : null, precipChart(h, width), gustChart(h, width), windchillChart(h, width, mobile)];
-  charts.forEach(ch => { if (ch) nodes.push(ch.fig || ch); });
-  if (nodes.length) fill('fortnight', nodes); else hide('fortnight');
-  const nowP = nowParts();
-  const lines = [].concat(T.periodLines(h.month), T.periodLines(h.season), T.plusLines(h.plus, nowP));
-  if (lines.length) fill('period', [el('ul', {class: 'cw-lines'}, lines.map(s => el('li', {text: s})))]); else hide('period');
-  const today = isoDate(nowP);
-  const cal = (h.calendar || []).find(r => r.date === today) || (h.calendar || [])[0] || null;
-  const recs = T.recordLines(h, cal, c.name);
-  if (recs.length) fill('records', [el('ul', {class: 'cw-lines'}, recs.map(s => el('li', {text: s})))]); else hide('records');
-  renderFooter(c, h);
+  state.width = chartWidth();
+  CW.history.render(c, h);
 }
 
 function renderFooter(c, h) {
@@ -685,8 +412,71 @@ function renderFooter(c, h) {
   f.textContent = '';
   f.appendChild(el('p', {text: T.footerLine(c, state.current.generated_at, state.offset)}));
   if (h && h.station) f.appendChild(el('p', {text: 'Climate records from ECCC\'s ' + h.station + ' station, since ' + h.record_start + '.'}));
-  if (c.eccc_url) f.appendChild(el('p', null, [el('a', {href: c.eccc_url, text: c.name + ' on weather.gc.ca'})]));
+  f.appendChild(el('p', null, [c ? el('a', {href: c.eccc_url, text: c.name + ' on weather.gc.ca'}) : el('a', {href: NWT_URL, text: 'The NWT on weather.gc.ca'})]));
   f.hidden = false;
+}
+
+// ---------------------------------------------------------------- the two all-communities views
+
+function nameCell(slug, c) { return el('th', {class: 'cw-cname', role: 'rowheader', scope: 'row'}, [el('a', {href: '#' + slug, text: c.name})]); }
+function regionRow(region, span) { return el('tr', {class: 'cw-region', role: 'row'}, [el('th', {role: 'rowheader', scope: 'rowgroup', colspan: String(span), text: region})]); }
+function table(cls, caption, head, rowFn, span) {
+  const comms = state.current.communities;
+  const bodies = byRegion().map(g => {
+    const body = el('tbody', {role: 'rowgroup'}, [regionRow(g.region, span)]);
+    g.slugs.forEach(slug => body.appendChild(rowFn(slug, comms[slug])));
+    return body;
+  });
+  return el('table', {class: 'cw-all ' + cls, role: 'table'}, [el('caption', {class: 'cw-sr', text: caption}), head].concat(bodies));
+}
+function nowTable() {
+  const head = el('thead', {class: 'cw-sr', role: 'rowgroup'}, [el('tr', {role: 'row'}, ['Community', 'Sky', 'Temperature', 'Wind', 'Conditions'].map(t => el('th', {role: 'columnheader', scope: 'col', text: t})))]);
+  return table('cw-all-now', 'Current conditions in every community, by region', head, (slug, c) => el('tr', {role: 'row'}, [
+    nameCell(slug, c),
+    el('td', {class: 'cw-cglyph', role: 'cell'}, [glyph(c.icon, null)]),
+    el('td', {class: 'cw-ctemp', role: 'cell'}, [fmtTemp(c.temp) || '', isStale(c) ? el('span', {class: 'cw-small', text: ' delayed'}) : null]),
+    el('td', {class: 'cw-cwind', role: 'cell', text: T.windShort(c) || ''}),
+    el('td', {class: 'cw-ccond', role: 'cell', text: c.condition || ''}),
+  ]), 5);
+}
+function hoursTable() {
+  const STEP = 3, COUNT = 8;
+  const timeHead = [];
+  for (let i = 0; i < COUNT; i++) timeHead.push(el('th', {class: 'cw-t8', role: 'columnheader', scope: 'col'}));
+  const head = el('thead', {role: 'rowgroup'}, [el('tr', {role: 'row'}, [
+    el('th', {class: 'cw-cname', role: 'columnheader', scope: 'col', text: 'Community'}),
+    el('th', {class: 'cw-cspark', role: 'columnheader', scope: 'col'}, [el('span', {class: 'cw-sr', text: 'Trend'})]),
+  ].concat(timeHead))]);
+  return table('cw-all-24', 'Temperature every three hours for the next 24 hours in every community, by region', head, (slug, c) => {
+    const cells = [];
+    for (let i = 0; i < COUNT; i++) cells.push(el('td', {class: 'cw-t8', role: 'cell'}));
+    const spark = el('td', {class: 'cw-cspark', role: 'cell'});
+    const tr = el('tr', {role: 'row'}, [nameCell(slug, c), spark].concat(cells));
+    load('forecast', slug).then(f => {
+      const hours = f.hourly || [];
+      for (let i = 0; i < COUNT && i * STEP < hours.length; i++) {
+        const p = hours[i * STEP], t = parseISO(p.time);
+        cells[i].textContent = fmtTemp(p.temp) || '';
+        if (t && !timeHead[i].textContent) timeHead[i].textContent = fmtTime(t, {compact: true});
+      }
+      const sp = sparkline(hours.map(p => p.temp));
+      if (sp) spark.appendChild(sp);
+    }, noop);
+    return tr;
+  }, COUNT + 2);
+}
+function showOverview(kind) {
+  state.history = null;
+  state.offset = offsetOf(state.current.communities[DEFAULT_SLUG]);
+  state.name.textContent = VIEWS[kind];
+  state.select.value = '';
+  setTitle(VIEWS[kind]);
+  state.warning.hidden = true;
+  Object.keys(state.sec).forEach(hide);
+  state.over.textContent = '';
+  state.over.appendChild(kind === 'all-now' ? nowTable() : hoursTable());
+  state.over.hidden = false;
+  renderFooter(null, null);
 }
 
 function showUnavailable() {
@@ -720,13 +510,16 @@ function boot() {
   window.addEventListener('resize', onResize);
 }
 
-const api = {
-  fmt: {roundHalfUp, fmtNumber, fmtTemp, fmtMeasure, fmtWindchill, numWords, fmtPercent, ordinal, fmtRange, cap, sentence,
-    parseISO, utcMillis, shift, dayName, fmtDate, fmtTime, fmtDateRange, clock, dateText, anomalyPhrase, isoDate},
-  text: T, styleProblems: styleProblems, EN: EN, DAYS: DAYS, MONTHS: MONTHS,
+// What history.js and the tests can use.
+const CW = {
+  EN: EN, DAYS: DAYS, MONTHS: MONTHS, REGIONS: REGIONS,
+  roundHalfUp, fmtNumber, fmtTemp, fmtMeasure, fmtWindchill, numWords, fmtPercent, ordinal, fmtRange, cap, sentence,
+  parseISO, utcMillis, shift, dayName, fmtDate, fmtTime, fmtDateRange, clock, dateText, anomalyPhrase, isoDate,
+  text: T, el, svg, fx, sparkline, fill, hide, chartWidth, nowParts, renderFooter, history: null,
 };
-if (typeof module !== 'undefined' && module.exports) module.exports = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = CW;
 if (typeof document !== 'undefined') {
+  window.CabinWeather = CW;
   const script = document.currentScript;
   try { BASE = new URL('.', script && script.src ? script.src : document.baseURI).href; } catch (e) { BASE = './'; }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

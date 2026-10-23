@@ -6,7 +6,28 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-const { fmt, text, styleProblems, EN, DAYS } = require('../site/app.js');
+const CW = require('../site/app.js');
+global.CabinWeather = CW;                      // history.js registers itself here, as it does in the browser
+const H = require('../site/history.js').text;
+const fmt = CW, text = CW.text, EN = CW.EN, DAYS = CW.DAYS;
+
+// The style check mirrors pipeline/formatters.py style_problems(). It is a test tool, not shipped.
+const STYLE_RULES = [
+  ['em dash', /\u2014/],
+  ['degree sign', /[\u00b0\u2103]/],
+  ['Unicode minus', /\u2212/],
+  ['today/yesterday/tomorrow', /\b(today|yesterday|tomorrow)\b/i],
+  ['NT for the territory', /\bNT\b/],
+  ['percent sign', /%/],
+  ['exclamation mark', /!/],
+  ["'over' before a number", /\bover\s+-?\d/i],
+  ['abbreviation with periods', /\b(?:[A-Za-z]\.){2,}/],
+  ['okay', /\bokay\b/i],
+  ['underway as one word', /\bunderway\b/i],
+  ["'minus' before a temperature", /\bminus\s+\d/i],
+  ['hyphen used as a range or break', /\d\s-\s\d|\s-\s/],
+];
+const styleProblems = t => STYLE_RULES.filter(r => r[1].test(t)).map(r => r[0]);
 const fixture = name => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
 const current = fixture('current.json');
 const forecast = fixture('forecast-yellowknife.json');
@@ -126,6 +147,15 @@ test('Now: wind in words, gusts, wind chill as a bare number, humidity in percen
   assert.deepEqual(text.nowFacts(Object.assign({}, yk, { wind_kmh: null, humidity: null, humidex: 32 })), ['Humidex 32']);
 });
 
+test('overview wind: compact, direction as given, gusts', () => {
+  assert.equal(text.windShort(yk), '16 km/h SSW');
+  assert.equal(text.windShort(Object.assign({}, yk, { wind_gust_kmh: 40 })), '16 km/h SSW, gusts 40');
+  assert.equal(text.windShort(Object.assign({}, yk, { wind_kmh: 0 })), 'Calm');
+  assert.equal(text.windShort(Object.assign({}, yk, { wind_dir: 'VR' })), '16 km/h variable');
+  assert.equal(text.windShort(Object.assign({}, yk, { wind_kmh: null })), null);
+  assert.equal(text.footerLine(null, current.generated_at, -360), 'Based on Environment and Climate Change Canada data. Updated 8:32am MT.');
+});
+
 test('warnings: one quiet line, titles linked', () => {
   assert.equal(text.warningLine(yk), null);
   const w = text.warningLine(Object.assign({}, yk, { warnings: [{ type: 'warning', title: 'Wind warning', url: 'https://weather.gc.ca/x' }] }));
@@ -146,24 +176,24 @@ test('This week: day name never Today, one-line text, high/low handling', () => 
 });
 
 test('month and season lines', () => {
-  const m = text.periodLines(history.month);
+  const m = H.periodLines(history.month);
   assert.equal(m[0], `October 1${EN}20 averaged 2.5C, about 1.9C above normal. That is the 22nd warmest October 1${EN}20 in 84 years.`);
   assert.equal(m[1], 'Precipitation was 6.5 mm against a normal of 18.4 mm, the 74th wettest in 84 years.');
   assert.equal(m[2], `Warmest October 1${EN}20 on record: 5.8C in 2023. Coldest: -5.3C in 1974. Wettest: 80.5 mm in 1967.`);
-  const s = text.periodLines(history.season);
+  const s = H.periodLines(history.season);
   assert.equal(s[0], 'Autumn so far, since September 1, averaged 6.3C, about 1.4C above normal. That is the 14th warmest autumn so far in 85 years.');
-  assert.deepEqual(text.periodLines(null), []);
+  assert.deepEqual(H.periodLines(null), []);
 });
 
 test('plus lines: days since -30C, first frost, first snow, snow on the ground', () => {
   const now = d('2026-10-21T10:00-06:00');
-  assert.deepEqual(text.plusLines(history.plus, now), [
+  assert.deepEqual(H.plusLines(history.plus, now), [
     'It has been 209 days since the last -30C night, on March 25.',
     'The first frost of the season came on September 16.',
     'No -10C night or snow yet this season.',
   ]);
   const winter = Object.assign({}, history.plus, { days_since_minus30: 1, last_minus30: '2026-10-20', first_minus10: '2026-10-25', first_snow: '2026-10-26', snow_on_ground: 12, snow_on_ground_date: '2026-10-28', season_snowfall: 14.2 });
-  assert.deepEqual(text.plusLines(winter, now), [
+  assert.deepEqual(H.plusLines(winter, now), [
     'It has been one day since the last -30C night, on October 20.',
     'The first frost of the season came on September 16.',
     'The first -10C night came on October 25.',
@@ -171,12 +201,12 @@ test('plus lines: days since -30C, first frost, first snow, snow on the ground',
     'Snow on the ground: 12 cm on October 28.',
     'Snowfall since August 1: 14.2 cm.',
   ]);
-  assert.equal(text.plusLines(Object.assign({}, history.plus, { last_minus30: '2025-03-25' }), now)[0], 'It has been 209 days since the last -30C night, on March 25, 2025.');
-  assert.deepEqual(text.plusLines(null, now), []);
+  assert.equal(H.plusLines(Object.assign({}, history.plus, { last_minus30: '2025-03-25' }), now)[0], 'It has been 209 days since the last -30C night, on March 25, 2025.');
+  assert.deepEqual(H.plusLines(null, now), []);
 });
 
 test('record lines: all-time with dates, and the record for the calendar day', () => {
-  const r = text.recordLines(history, history.calendar[0], 'Yellowknife');
+  const r = H.recordLines(history, history.calendar[0], 'Yellowknife');
   assert.equal(r[0], "Yellowknife's highest temperature since 1942 is 32.6C, on August 2, 2021, and its lowest -51.2C, on January 31, 1947.");
   assert.equal(r[1], 'The wettest day brought 82.8 mm, on August 15, 1973. The strongest gust on record is 113 km/h, on November 23, 1956.');
   assert.equal(r[2], 'On October 21 the record high is 10.7C, set in 1998, and the record low -17.8C, set in 1956. The wettest October 21 brought 13.2 mm in 1989.');
@@ -184,7 +214,7 @@ test('record lines: all-time with dates, and the record for the calendar day', (
 
 test('chart day detail', () => {
   const day = history.days.find(x => x.date === '2026-10-16');
-  assert.equal(text.dayDetail(day), 'Friday, October 16: high 8.3C, low 3.4C. Normal 1.3C and -3.4C. Precipitation 0.4 mm. Peak gust 45 km/h. Record high 14.4C in 1963, record low -16.9C in 2002. One of the three warmest highs for the date. One of the three warmest overnight lows for the date.');
+  assert.equal(H.dayDetail(day), 'Friday, October 16: high 8.3C, low 3.4C. Normal 1.3C and -3.4C. Precipitation 0.4 mm. Peak gust 45 km/h. Record high 14.4C in 1963, record low -16.9C in 2002. One of the three warmest highs for the date. One of the three warmest overnight lows for the date.');
 });
 
 test('every generated sentence over the live fixtures passes the style check', () => {
@@ -192,9 +222,9 @@ test('every generated sentence over the live fixtures passes the style check', (
   const sentences = [].concat(
     text.nowFacts(yk), [text.observedLine(yk, now), text.sunLine(yk), text.footerLine(yk, current.generated_at, -360), history.summary],
     forecast.daily.map(text.weekText),
-    text.periodLines(history.month), text.periodLines(history.season), text.plusLines(history.plus, now),
-    text.recordLines(history, history.calendar[0], 'Yellowknife'),
-    history.days.map(text.dayDetail),
+    H.periodLines(history.month), H.periodLines(history.season), H.plusLines(history.plus, now),
+    H.recordLines(history, history.calendar[0], 'Yellowknife'),
+    history.days.map(H.dayDetail),
   );
   for (const s of sentences) {
     assert.ok(s && s.length, 'empty sentence');
