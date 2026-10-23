@@ -16,7 +16,7 @@ Based on Environment and Climate Change Canada data. See the [ECCC data licence]
 | `pipeline/config/` | `communities.json` (the 28 communities) and `stations.json` (climate station threads for the six history communities). |
 | `archive/` | Committed daily climate archive, one CSV per history community, plus LTCE record JSON. |
 | `data/` | The JSON the front end reads. `history/` is committed by the daily job; `current.json` and `forecast/` are built at deploy time. |
-| `site/` | The front end: `index.html`, `app.js`, `app.css`, `icons.svg`. Deployed as-is. |
+| `site/` | The front end: `index.html`, `app.js`, `history.js`, `app.css`, `icons.svg`. Deployed as-is. |
 | `e2e/` | Front-end checks: formatter tests (`npm test`), Playwright screenshots (`npx playwright test`), the local static server (`e2e/serve.py`) and frozen fixtures. |
 | `wordpress/` | The shortcode snippet for cabinradio.ca. |
 | `docs/` | The implementation plan and working notes. |

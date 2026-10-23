@@ -19,7 +19,7 @@ A static weather app for 28 NWT communities, built from ECCC open data by a sche
 - `pipeline/fetch_citypage.py`, `icons.py` – City Page XML -> `data/current.json` and `data/forecast/`.
 - `pipeline/validate.py`, `pipeline/schemas/` – the data contracts; run before every deploy.
 - `.github/workflows/` – `refresh-current` (at :07 and :37, and on push to main), `refresh-climate` (09:10 and 15:10 UTC, commits to main), `deploy` (reusable), `ci` (pytest, formatter tests, Playwright screenshots).
-- `site/` – the front end: `index.html` (standalone shell), `app.js` (formatter, generated text, charts, rendering; under 40 KB), `app.css` (scoped under `#cabin-weather`), `icons.svg` (the `cw-` glyph sprite). See ARCHITECTURE.md, Front end.
+- `site/` – the front end: `index.html` (standalone shell), `app.js` (formatter, sentences, community page, the two overviews; under 40 KB), `history.js` (the charts and history sentences, loaded only for the six history communities), `app.css` (scoped under `#cabin-weather`), `icons.svg` (the `cw-` glyph sprite). See ARCHITECTURE.md, Front end.
 - `e2e/` – front-end checks: `formatter.test.js` (house style, `npm test`), `screenshots.spec.js` (Playwright, 375x812 and 1280x900), `serve.py` (local static server), `fixtures/` (frozen live JSON).
 - `docs/implementation-plan.md` – the spec: data contracts, pipeline rules, front-end rules, look and feel, house style, phases.
 - `wordpress/cabin-weather-shortcode.php` – the snippet for `cabin-radio-patches.php`. That plugin lives in Ollie's local theme copy at `~/Documents/Cabin Radio/Website/Jan Feb 2026 alterations/Theme/`, not in this repo, and Ollie deploys it.
@@ -39,7 +39,7 @@ A static weather app for 28 NWT communities, built from ECCC open data by a sche
 
 ```bash
 .venv/bin/pip install -r pipeline/requirements-dev.txt   # once
-.venv/bin/pytest                                         # tests (57 at the end of Phase 2)
+.venv/bin/pytest                                         # tests (58 at the end of Phase 3)
 .venv/bin/python pipeline/discover_stations.py           # check config against live ECCC data
 .venv/bin/python pipeline/fetch_citypage.py --no-live    # current + forecasts into data/ without touching the live file
 .venv/bin/python pipeline/fetch_climate.py               # last 10 days into archive/*.csv
@@ -66,6 +66,7 @@ Local Python is 3.14; CI pins 3.12. Write code that runs on both (no 3.13+ only 
 - 2026-10-21: Phase 2 built: the Yellowknife page end to end (Now, Next 24 hours, This week, The past two weeks with the temperature, precipitation, gust and hourly wind chill charts, This month and this season, Records, Footer), a front-end formatter with 20 house-style tests, Playwright screenshots and a CI job, `.claude/launch.json` for previews. Lighthouse mobile against the local server: performance 97, accessibility 100, best practices 100, SEO 100; no console errors.
 - 2026-10-23: Ollie chose Cabin orange for links and the warning line over the contrast-safe black-with-orange-underline; Lighthouse accessibility is 96 as a result, from the colour-contrast audit alone (see ARCHITECTURE.md, Front end, Contrast).
 - 2026-10-23: the Cloudflare Worker trigger (`ops/cloudflare-trigger/`) is live and dispatching the refresh at :07 and :37; GitHub's own schedule stays as a fallback. The fine-grained GitHub token it uses expires in a year; see the README's Renewal section.
-- Next: Phase 3, every community and the two overview views (the renderer already takes any slug; the overview tables and their two links are what remain).
+- 2026-10-23: Phase 3 built: every community renders from its hash, the select is grouped by `regions_order`, the two overview routes (`#all-now`, `#all-24h`) with their links under the heading, and the charts moved to `history.js` so `app.js` stays under budget. Playwright: 18 checks across the two sizes (every route, keyboard, no horizontal scroll at 375 px). Lighthouse mobile (performance/accessibility/best practices/SEO): Yellowknife 99/96/100/100, `#all-now` 100/96/100/100, `#all-24h` 95/96/100/100; the 96 is the accepted orange-link contrast, nothing else fails.
+- Next: Phase 4, the embed on cabinradio.ca (`wordpress/cabin-weather-shortcode.php`, then Ollie deploys it), then the Phase 5 soak.
 
 Keep this section and `ARCHITECTURE.md` current as phases land.
