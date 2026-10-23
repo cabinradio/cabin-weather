@@ -37,8 +37,12 @@ test('Yellowknife renders end to end with no console errors', async ({ page }, t
   await expect(app.locator('.cw-hour').first()).toBeVisible();
   expect(await app.locator('.cw-week li').count()).toBeGreaterThan(0);
   await expect(app.locator('.cw-chart').first()).toBeVisible();
-  await expect(app).toContainText('Hourly wind chill');
   await expect(app.locator('.cw-foot')).toContainText('Environment and Climate Change Canada');
+  // The wind chill chart appears only when the history file carries hourly wind chill; CI builds that
+  // file with derive.py --offline, which skips the hourly fetch, so follow the data rather than assume.
+  const history = await (await page.request.get('data/history/yellowknife.json')).json();
+  const hasWindChill = (history.plus.windchill_hourly || []).some(p => p.wind_chill != null);
+  if (hasWindChill) await expect(app).toContainText('Hourly wind chill'); else await expect(app).not.toContainText('Hourly wind chill');
   await settled(page);
 
   // Every glyph in use must resolve to a shape in the sprite.
