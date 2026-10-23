@@ -1,6 +1,7 @@
 /* Cabin Weather. Every selector is scoped under #cabin-weather so nothing leaks into or out of cabinradio.ca.
    Tokens are the ones in docs/implementation-plan.md section 6; nothing else is used.
-   Text never uses --muted (#999 fails the 4.5:1 contrast Lighthouse requires); small text is --ink-3. */
+   Links and the warning line are Cabin orange, as on the site, by Ollie's decision on 2026-10-23; Lighthouse marks
+   that down for contrast. Other text never uses --muted (#999 fails the same 4.5:1 rule); small text is --ink-3. */
 #cabin-weather{
   --font-body:'Domine',Georgia,serif;
   --font-head:'Lora',Georgia,serif;
@@ -24,8 +25,8 @@
 #cabin-weather *,#cabin-weather *::before,#cabin-weather *::after{box-sizing:inherit}
 #cabin-weather h1,#cabin-weather h2,#cabin-weather h3,#cabin-weather p,#cabin-weather ul,#cabin-weather ol,#cabin-weather li,#cabin-weather figure,#cabin-weather figcaption{margin:0;padding:0;background:none;border:0;list-style:none;text-align:left}
 #cabin-weather h1,#cabin-weather h2,#cabin-weather h3{font-family:var(--font-head);font-weight:500;color:var(--ink-2);line-height:1.2;letter-spacing:0;text-transform:none}
-#cabin-weather a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:1.5px;text-underline-offset:.15em}
-#cabin-weather a:hover{color:var(--accent)}
+#cabin-weather a{color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.15em}
+#cabin-weather a:hover{text-decoration-thickness:2px}
 #cabin-weather :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 #cabin-weather [hidden]{display:none!important}
 #cabin-weather .cw-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -36,7 +37,8 @@
 #cabin-weather .cw-name{font-size:40px}
 #cabin-weather .cw-pick{display:flex;flex-direction:column;gap:.2rem;font-size:12px;color:var(--ink-3);min-width:13rem}
 #cabin-weather .cw-pick select{font:inherit;font-family:var(--font-body);font-size:16px;line-height:1.3;color:var(--ink);background:#fff;border:1px solid var(--muted);border-radius:0;padding:.5rem .75rem;min-height:44px;width:100%;max-width:100%;margin:0;box-shadow:none}
-#cabin-weather .cw-warning{margin-bottom:var(--space);color:var(--ink-2)}
+#cabin-weather .cw-warning{margin-bottom:var(--space);color:var(--accent)}
+#cabin-weather .cw-warning a{color:inherit}
 #cabin-weather .cw-notice{margin:var(--space) 0}
 
 /* Sections: whitespace and one hairline rule */
