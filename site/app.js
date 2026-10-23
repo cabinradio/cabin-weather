@@ -195,8 +195,9 @@ function append(node, children) {
 }
 function el(tag, attrs, children) { const n = document.createElement(tag); setAttrs(n, attrs); append(n, children); return n; }
 function svg(tag, attrs, children) { const n = document.createElementNS(SVG_NS, tag); setAttrs(n, attrs); append(n, children); return n; }
+const WET = ['rain', 'showers', 'snow', 'flurries', 'freezing-rain', 'rain-snow', 'drizzle', 'hail', 'thunder', 'blowing-snow'];   // drawn in blue-grey
 function glyph(name, label) {
-  const s = svg('svg', {class: 'cw-glyph', focusable: 'false', role: label ? 'img' : null, 'aria-label': label || null, 'aria-hidden': label ? null : 'true'});
+  const s = svg('svg', {class: 'cw-glyph' + (WET.indexOf(name) >= 0 ? ' cw-wet' : ''), focusable: 'false', role: label ? 'img' : null, 'aria-label': label || null, 'aria-hidden': label ? null : 'true'});
   s.appendChild(svg('use', {href: '#cw-' + (name || 'na')}));
   return s;
 }
@@ -232,6 +233,12 @@ function load(kind, slug) {
 function noop() {}
 function nowParts() { return shift(Date.now(), state.offset); }
 function chartWidth() { return Math.max(280, state.root.clientWidth || 710); }
+function isNight(p, c) {                 // between the community's sunset and sunrise (clock strings from current.json)
+  const rise = clock(c.sunrise), set = clock(c.sunset);
+  if (!rise || !set) return false;
+  const m = p.h * 60 + p.mi;
+  return m < rise.h * 60 + rise.mi || m >= set.h * 60 + set.mi;
+}
 function offsetOf(c) { const p = c && parseISO(c.observed_at); return p && p.off != null ? p.off : DEFAULT_OFFSET; }
 
 function buildSkeleton() {
@@ -357,6 +364,7 @@ function isStale(c) {
 function renderNow(c) {
   const nodes = [];
   const line = el('div', {class: 'cw-now'});
+  if (c.icon && c.icon !== 'na') line.appendChild(glyph(c.icon, null));
   if (c.temp != null) line.appendChild(el('span', {class: 'cw-big', text: fmtTemp(c.temp)}));
   if (c.condition) line.appendChild(el('span', {class: 'cw-cond', text: c.condition}));
   if (line.childNodes.length) nodes.push(line);
@@ -374,7 +382,7 @@ function renderForecast(c, f) {
     const strip = el('div', {class: 'cw-hours', role: 'list'});
     hours.forEach(p => {
       const t = parseISO(p.time), label = t ? fmtTime(t, {compact: true}) : '', temp = fmtTemp(p.temp);
-      const item = el('div', {class: 'cw-hour', role: 'listitem', 'aria-label': [label, temp, p.condition].filter(Boolean).join(', ')});
+      const item = el('div', {class: 'cw-hour' + (t && isNight(t, c) ? ' cw-night' : ''), role: 'listitem', 'aria-label': [label, temp, p.condition].filter(Boolean).join(', ')});
       item.appendChild(el('div', {class: 'cw-hour-t', 'aria-hidden': 'true', text: label}));
       item.appendChild(glyph(p.icon, null));
       item.appendChild(el('div', {class: 'cw-hour-v', 'aria-hidden': 'true', text: temp || ''}));
@@ -515,7 +523,7 @@ const CW = {
   EN: EN, DAYS: DAYS, MONTHS: MONTHS, REGIONS: REGIONS,
   roundHalfUp, fmtNumber, fmtTemp, fmtMeasure, fmtWindchill, numWords, fmtPercent, ordinal, fmtRange, cap, sentence,
   parseISO, utcMillis, shift, dayName, fmtDate, fmtTime, fmtDateRange, clock, dateText, anomalyPhrase, isoDate,
-  text: T, el, svg, fx, sparkline, fill, hide, chartWidth, nowParts, renderFooter, history: null,
+  text: T, el, svg, fx, sparkline, fill, hide, chartWidth, nowParts, renderFooter, isNight, history: null,
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = CW;
 if (typeof document !== 'undefined') {

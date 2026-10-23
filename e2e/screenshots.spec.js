@@ -38,6 +38,10 @@ test('Yellowknife renders end to end with no console errors', async ({ page }, t
   expect(await app.locator('.cw-week li').count()).toBeGreaterThan(0);
   await expect(app.locator('.cw-chart').first()).toBeVisible();
   await expect(app.locator('.cw-foot')).toContainText('Environment and Climate Change Canada');
+  // The styling agreed on 2026-10-23: a glyph beside the big temperature, shaded night hours, a blue low line.
+  await expect(app.locator('.cw-now .cw-glyph')).toHaveCount(1);
+  expect(await app.locator('.cw-hour.cw-night').count()).toBeGreaterThan(0);
+  await expect(app.locator('.cw-chart .cw-line.cw-low')).toHaveCount(1);
   // The wind chill chart appears only when the history file carries hourly wind chill; CI builds that
   // file with derive.py --offline, which skips the hourly fetch, so follow the data rather than assume.
   const history = await (await page.request.get('data/history/yellowknife.json')).json();

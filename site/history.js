@@ -141,9 +141,9 @@ function makeChart(width, H, title, subtitle, margin) {
   return {fig: fig, svg: s, M: M, width: width, H: H};
 }
 function scaleY(ch, t) { return v => ch.M.t + (t.max - v) / (t.max - t.min) * (ch.H - ch.M.t - ch.M.b); }
-function drawGrid(ch, t, y, fmt) {
+function drawGrid(ch, t, y, fmt, zero) {   // zero: draw the 0C line darker
   t.values.forEach(v => {
-    ch.svg.appendChild(svg('line', {class: 'cw-grid', x1: ch.M.l, x2: ch.width - ch.M.r, y1: fx(y(v)), y2: fx(y(v))}));
+    ch.svg.appendChild(svg('line', {class: 'cw-grid' + (zero && v === 0 ? ' cw-zero' : ''), x1: ch.M.l, x2: ch.width - ch.M.r, y1: fx(y(v)), y2: fx(y(v))}));
     ch.svg.appendChild(svg('text', {x: ch.M.l - 8, y: fx(y(v) + 4), 'text-anchor': 'end', text: fmt(v)}));
   });
 }
@@ -192,7 +192,7 @@ function tempChart(h, width, mobile) {
   if (!n || !ext) return null;
   const dates = days.map(d => parseISO(d.date));
   const title = 'Daily high and low, ' + fmtDateRange(dates[0], dates[n - 1]);
-  const sub = 'Highs and lows in orange, the ' + h.normal_period + ' normal high to low in darker grey and the ' + h.range_period + ' range in lighter grey. Record days are marked.';
+  const sub = 'Highs in orange and lows in blue, with the ' + h.normal_period + ' normal high to low in darker grey and the ' + h.range_period + ' range in lighter grey. Record days are marked.';
   const ch = makeChart(width, mobile ? 260 : 300, title, sub);
   const M = ch.M, s = ch.svg;
   const slot = (width - M.l - M.r) / n, x = i => M.l + (i + 0.5) * slot;
@@ -202,10 +202,11 @@ function tempChart(h, width, mobile) {
   const marker = svg('rect', {class: 'cw-sel', x: 0, y: M.t, width: fx(slot), height: ch.H - M.t - M.b});
   marker.style.display = 'none';
   s.appendChild(marker);
-  drawGrid(ch, t, y, v => fmtTemp(v));
+  drawGrid(ch, t, y, v => fmtTemp(v), true);
   dayLabels(ch, dates, x, slot);
-  ['max', 'min'].forEach(k => s.appendChild(svg('path', {class: 'cw-line', d: linePath(days, x, y, k)})));
-  days.forEach((d, i) => ['max', 'min'].forEach(k => { if (d[k] != null) s.appendChild(svg('circle', {class: 'cw-dot', cx: fx(x(i)), cy: fx(y(d[k])), r: 3})); }));
+  const low = k => (k === 'min' ? ' cw-low' : '');
+  ['max', 'min'].forEach(k => s.appendChild(svg('path', {class: 'cw-line' + low(k), d: linePath(days, x, y, k)})));
+  days.forEach((d, i) => ['max', 'min'].forEach(k => { if (d[k] != null) s.appendChild(svg('circle', {class: 'cw-dot' + low(k), cx: fx(x(i)), cy: fx(y(d[k])), r: 3})); }));
   const lastLabel = {max: -Infinity, min: -Infinity};
   days.forEach((d, i) => {
     const marks = {};
@@ -215,15 +216,16 @@ function tempChart(h, width, mobile) {
       const m = marks[k], cx = x(i), cy = y(d[k]);
       const bump = cx - lastLabel[k] < 44 ? 12 : 0;      // consecutive flagged days: stagger the labels
       lastLabel[k] = cx;
-      s.appendChild(svg('circle', {class: m[1] ? 'cw-dot' : 'cw-ring', cx: fx(cx), cy: fx(cy), r: 5}));
-      s.appendChild(svg('text', {class: 'cw-label', x: fx(Math.max(M.l + 20, Math.min(width - M.r - 20, cx))), y: fx(cy + (k === 'max' ? -10 - bump : 18 + bump)), 'text-anchor': 'middle', text: m[2]}));
+      s.appendChild(svg('circle', {class: 'cw-halo', cx: fx(cx), cy: fx(cy), r: 9}));
+      s.appendChild(svg('circle', {class: (m[1] ? 'cw-dot' : 'cw-ring') + low(k), cx: fx(cx), cy: fx(cy), r: 6}));
+      s.appendChild(svg('text', {class: 'cw-label' + low(k), x: fx(Math.max(M.l + 20, Math.min(width - M.r - 20, cx))), y: fx(cy + (k === 'max' ? -10 - bump : 18 + bump)), 'text-anchor': 'middle', text: m[2]}));
     });
   });
   const ends = {};
   ['max', 'min'].forEach(k => { for (let i = n - 1; i >= 0; i--) if (days[i][k] != null) { ends[k] = {x: x(i), y: y(days[i][k])}; break; } });
   if (ends.max && ends.min && Math.abs(ends.max.y - ends.min.y) < 16) { ends.max.y -= 8 - (ends.min.y - ends.max.y) / 2; ends.min.y += 8 - (ends.min.y - ends.max.y) / 2; }
   if (ends.max) s.appendChild(svg('text', {class: 'cw-label', x: fx(ends.max.x + 10), y: fx(ends.max.y + 4), text: 'High'}));
-  if (ends.min) s.appendChild(svg('text', {class: 'cw-label', x: fx(ends.min.x + 10), y: fx(ends.min.y + 4), text: 'Low'}));
+  if (ends.min) s.appendChild(svg('text', {class: 'cw-label cw-low', x: fx(ends.min.x + 10), y: fx(ends.min.y + 4), text: 'Low'}));
   // Tap or click anywhere on the chart to read a day; arrow keys do the same from the keyboard.
   const detail = el('p', {class: 'cw-detail', 'aria-live': 'polite', text: 'Select a day to see its numbers.'});
   let selected = -1;
@@ -286,31 +288,44 @@ function gustChart(h, width) {
   const t = {min: 0, max: Math.ceil(max * 1.15 / 10) * 10}, y = scaleY(ch, t);
   s.appendChild(svg('line', {class: 'cw-grid', x1: M.l, x2: width - M.r, y1: fx(y(0)), y2: fx(y(0))}));
   dayLabels(ch, days.map(d => parseISO(d.date)), x, slot);
-  s.appendChild(svg('path', {class: 'cw-bar-line', d: linePath(days, x, y, 'gust')}));
-  days.forEach((d, i) => { if (d.gust != null) s.appendChild(svg('circle', {class: 'cw-bar-dot', cx: fx(x(i)), cy: fx(y(d.gust)), r: 3})); });
+  s.appendChild(svg('path', {class: 'cw-line-cold', d: linePath(days, x, y, 'gust')}));
+  days.forEach((d, i) => { if (d.gust != null) s.appendChild(svg('circle', {class: 'cw-bar', cx: fx(x(i)), cy: fx(y(d.gust)), r: 3})); });
   s.appendChild(svg('text', {x: fx(x(maxI)), y: fx(y(max) - 9), 'text-anchor': 'middle', text: fmtMeasure(max, 'km/h')}));
   return ch;
 }
 
-function windchillChart(h, width, mobile) {
+function windchillChart(h, width, mobile, c) {
   const hrs = (h.plus && h.plus.windchill_hourly) || [], n = hrs.length;
   let minI = -1, min = Infinity;
   hrs.forEach((p, i) => { if (p.wind_chill != null && p.wind_chill < min) { min = p.wind_chill; minI = i; } });
   if (minI < 0) return null;
   const ext = extent(hrs, ['temp', 'wind_chill']);
   const times = hrs.map(p => parseISO(p.time)), when = times[minI];
-  const sub = 'Hourly temperature in grey and wind chill in orange at ' + H.stationLabel(h.station) + '. ECCC calculates wind chill only when it is cold and windy enough; the coldest in the fortnight was ' + fmtWindchill(min) + ' at ' + fmtTime(when) + ' on ' + fmtDate(when) + '.';
+  const sub = 'Hourly temperature in orange above freezing and light blue below it, with wind chill in dark blue, at ' + H.stationLabel(h.station) + '. Nights are shaded. ECCC calculates wind chill only when it is cold and windy enough; the coldest in the fortnight was ' + fmtWindchill(min) + ' at ' + fmtTime(when) + ' on ' + fmtDate(when) + '.';
   const ch = makeChart(width, mobile ? 220 : 240, 'Hourly wind chill, ' + fmtDateRange(times[0], times[n - 1]), sub);
   const M = ch.M, s = ch.svg;
   const slot = (width - M.l - M.r) / n, x = i => M.l + (i + 0.5) * slot;
   const t = niceTicks(ext[0], ext[1], 7), y = scaleY(ch, t);
-  drawGrid(ch, t, y, v => fmtTemp(v));
+  let start = -1;                                    // shade each run of night hours
+  times.forEach((p, i) => {
+    const night = c ? CW.isNight(p, c) : false;
+    if (night && start < 0) start = i;
+    if (start >= 0 && (!night || i === n - 1)) {
+      const end = night ? i : i - 1;
+      s.appendChild(svg('rect', {class: 'cw-nightband', x: fx(x(start) - slot / 2), y: M.t, width: fx(x(end) - x(start) + slot), height: ch.H - M.t - M.b}));
+      start = -1;
+    }
+  });
+  drawGrid(ch, t, y, v => fmtTemp(v), true);
   const noons = [];
   times.forEach((p, i) => { if (p.h === 12 && p.mi === 0) noons.push({i: i, p: p}); });
   const dayWidth = noons.length > 1 ? x(noons[1].i) - x(noons[0].i) : slot * 24;
   dayLabels(ch, noons.map(q => q.p), j => x(noons[j].i), dayWidth);
-  s.appendChild(svg('path', {class: 'cw-line-2', d: linePath(hrs, x, y, 'temp')}));
-  s.appendChild(svg('path', {class: 'cw-line', d: linePath(hrs, x, y, 'wind_chill')}));
+  const clipId = 'cw-clip-' + (++uid);                 // orange above freezing, light blue below
+  s.appendChild(svg('clipPath', {id: clipId}, [svg('rect', {x: 0, y: 0, width: width, height: fx(Math.max(0, y(0)))})]));
+  s.appendChild(svg('path', {class: 'cw-line-cold', d: linePath(hrs, x, y, 'temp')}));
+  s.appendChild(svg('path', {class: 'cw-line', 'clip-path': 'url(#' + clipId + ')', d: linePath(hrs, x, y, 'temp')}));
+  s.appendChild(svg('path', {class: 'cw-line cw-wc', d: linePath(hrs, x, y, 'wind_chill')}));
   return ch;
 }
 
@@ -319,7 +334,7 @@ function windchillChart(h, width, mobile) {
 function render(c, h) {
   const width = CW.chartWidth(), mobile = width < 600;
   const nodes = [];
-  [tempChart(h, width, mobile), h.summary ? el('p', {class: 'cw-summary', text: h.summary}) : null, precipChart(h, width), gustChart(h, width), windchillChart(h, width, mobile)]
+  [tempChart(h, width, mobile), h.summary ? el('p', {class: 'cw-summary', text: h.summary}) : null, precipChart(h, width), gustChart(h, width), windchillChart(h, width, mobile, c)]
     .forEach(x => { if (x) nodes.push(x.fig || x); });
   if (nodes.length) CW.fill('fortnight', nodes); else CW.hide('fortnight');
   const nowP = CW.nowParts();

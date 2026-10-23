@@ -20,7 +20,7 @@ def test_every_glyph_has_a_symbol_in_the_sprite():
 def test_front_end_size_budget():
     assert (SITE / "app.js").stat().st_size < 40_000       # plan section 5; first paint needs only this script
     assert (SITE / "history.js").stat().st_size < 24_000   # loaded on demand for the six history communities
-    assert (SITE / "app.css").stat().st_size < 12_000
+    assert (SITE / "app.css").stat().st_size < 13_000       # raised from 12 KB in the plan amendment of 2026-10-23
     assert (SITE / "icons.svg").stat().st_size < 15_000
 
 
