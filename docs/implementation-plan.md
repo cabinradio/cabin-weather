@@ -52,6 +52,7 @@ cabin-weather/
   site/                     # the front end, deployed as-is
     index.html
     app.js
+    history.js              # charts and history sentences, loaded by app.js only for the six history communities (added in Phase 3)
     app.css
     icons.svg               # one sprite, ECCC icon codes mapped to ~20 simple glyphs
   wordpress/
@@ -140,7 +141,7 @@ Sections that do not apply to a tier are simply absent; never show an empty sect
 
 **All-communities views.** A single table with no borders, grouped by region with a small region label, one row per community: name, glyph, temperature, wind, condition. The 24-hour view is the same table with each row showing eight three-hourly temperatures as text with a tiny sparkline. Tap a name to go to that community. On phones the table collapses to two columns (name, temperature) with the rest on a second line.
 
-**Performance budget.** `app.js` under 40 KB, `app.css` under 12 KB, `icons.svg` under 15 KB, all uncompressed. First paint needs only `index.html`, CSS, fonts and `current.json`. Forecast and history JSON are fetched on demand when a community is shown, cached in memory. Prefetch Yellowknife's forecast and history immediately after first paint. Use `fetch` with `cache: 'default'` and let GitHub Pages' cache headers do the rest. Lighthouse mobile performance 95 or better on a throttled 4G profile.
+**Performance budget.** `app.js` under 40 KB, `history.js` under 24 KB, `app.css` under 13 KB (12 KB until the amendment of 2026-10-23), `icons.svg` under 15 KB, all uncompressed. First paint needs only `index.html`, CSS, fonts and `current.json`. Forecast and history JSON are fetched on demand when a community is shown, cached in memory. Prefetch Yellowknife's forecast and history immediately after first paint. Use `fetch` with `cache: 'default'` and let GitHub Pages' cache headers do the rest. Lighthouse mobile performance 95 or better on a throttled 4G profile.
 
 **Resilience.** If `current.json` fails to load, show the page skeleton with one calm sentence ("Live weather is temporarily unavailable. Try weather.gc.ca.") and a link; never a blank. If a community's forecast fails, show Now from `current.json` and omit the rest. Stale data shows the observation time in the normal place plus "Observations are delayed" in muted text. No console errors on any route. Works with JavaScript disabled to the extent of showing the heading, the select (which falls back to navigating by hash) and the ECCC link.
 
@@ -169,9 +170,17 @@ Translate that into tokens in `app.css` and use nothing else:
 }
 ```
 
-Charts: Lora labels at 13px, `--grid` hairlines, no axis lines, no chart borders, no legends when a subtitle sentence can say what the colours mean, no tooltips on mobile (tap a point shows its value inline beneath the chart instead). Temperature lines and points in `--accent`; bands in the two greys; precipitation in `--precip`. Big numbers (the current temperature) in Lora 500 at 64px desktop / 48px mobile. Everything else at body size. Whitespace does the structuring: no cards, no boxes, no background tints, no icons beyond the weather glyphs, one hairline rule between sections.
+**Amended 2026-10-23, after Ollie compared three mock-ups.** Colour carries meaning where it helps, and nowhere else:
 
-Weather glyphs: a single inline SVG sprite of about 20 line-drawn symbols (sun, moon, part cloud day/night, cloud, rain, showers, snow, flurries, freezing rain, thunder, fog, blowing snow, wind, clear night, ice crystals) drawn at 1.5 px stroke in `currentColor`. No colour fills, no emoji.
+- One more token, `--precip-ink: #4e7190`, a darker blue-grey with enough contrast for 2 px lines and glyph strokes.
+- Glyphs are drawn at 1.75 px. The sun and its rays take `--accent`; precipitation glyphs (rain, showers, snow, flurries, freezing rain, rain and snow, drizzle, hail, thunder, blowing snow) take `--precip-ink`; everything else stays `--ink-3`. The current condition's glyph sits beside the big temperature in Now.
+- Night hours, between the community's sunset and sunrise, are shaded `--band-range` in the 24-hour strip and the hourly wind chill chart.
+- In the daily chart highs are `--accent` and lows `--precip-ink`, each with its own end label; record and top-three marks take the colour of the line they sit on and get a white halo. The hourly temperature line is `--accent` above freezing and `--precip` below it, with wind chill in `--precip-ink`. The 0C gridline is drawn in `--muted` and labelled.
+- Numbers are never coloured; the minus sign says cold.
+
+Charts: Lora labels at 13px, `--grid` hairlines, no axis lines, no chart borders, no legends when a subtitle sentence can say what the colours mean, no tooltips on mobile (tap a point shows its value inline beneath the chart instead). Temperature lines and points in `--accent`, except as amended above; bands in the two greys; precipitation in `--precip`. Big numbers (the current temperature) in Lora 500 at 64px desktop / 48px mobile. Everything else at body size. Whitespace does the structuring: no cards, no boxes, no background tints, no icons beyond the weather glyphs, one hairline rule between sections.
+
+Weather glyphs: a single inline SVG sprite of about 20 line-drawn symbols (sun, moon, part cloud day/night, cloud, rain, showers, snow, flurries, freezing rain, thunder, fog, blowing snow, wind, clear night, ice crystals) drawn at 1.75 px stroke (1.5 px before the amendment) in `currentColor`, with the sun and precipitation colours above. No colour fills, no emoji.
 
 Glyphs and charts must look right in Zeen's CSS context: scope every selector under `#cabin-weather`, set `box-sizing`, `line-height` and `font-family` explicitly at the root, and reset table and list styles the theme may impose.
 
@@ -209,7 +218,7 @@ From the Cabin Radio Style Guide; these are not optional.
 - Do not add a JavaScript framework, a chart library, a CSS framework, analytics, or any CDN script.
 - Do not call ECCC from the browser, and do not call weatherstats.ca at all.
 - Do not invent data for communities ECCC does not cover, and do not show snowfall or snow depth outside the Yellowknife tier.
-- Do not use colour-coded temperature scales, gradients, cards, shadows, badges or icons beyond the weather glyphs. If a design choice would not look at home in a Cabin Radio article, leave it out.
+- Do not use blue-to-red temperature scales, coloured numbers, gradients, cards, shadows, badges or icons beyond the weather glyphs. The only temperature colours are the ones in section 6's amendment of 2026-10-23: highs orange and lows blue in the daily chart, and the freezing split on the hourly line. If a design choice would not look at home in a Cabin Radio article, leave it out.
 - Do not use "today", "tomorrow", em dashes, degree signs or `NT`.
 - Do not store anything in `localStorage` except, optionally, the last selected community.
 
