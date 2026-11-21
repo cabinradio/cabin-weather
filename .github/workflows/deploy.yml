@@ -1,5 +1,10 @@
 # Builds the Pages artifact (site/ + committed data/ + fresh current and forecast JSON) and deploys it.
 # Called by refresh-current.yml and refresh-climate.yml. Always deploys the tip of main.
+#
+# Build and deploy are separate jobs on purpose. When upload-pages-artifact and deploy-pages run in the
+# same job, deploy-pages lists the run's artifacts a fraction of a second after the upload is finalized
+# and sometimes finds none (actions/deploy-pages#451); that was every "Run failed" email in Nov 2026.
+# A second job starts seconds later, after the artifact is visible.
 name: Deploy to Pages
 
 on:
@@ -15,12 +20,9 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     # Concurrency lives in the calling workflows (group "pages"); declaring it here too deadlocks the run.
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,5 +48,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
